@@ -40,7 +40,7 @@ export default function Notepad({ email, onLoggedOut }) {
 
       <header className="masthead">
         <h1>Wallet Notepad</h1>
-        <p>Quantum Logics Income, Poly Learning Initiative, and an adjustable Monthly Budget.</p>
+        <p>Quantum Logics Income, Poly Learning Initiative, an adjustable Monthly Budget, and your Wallets.</p>
       </header>
 
       {loadError && (
@@ -80,6 +80,18 @@ export default function Notepad({ email, onLoggedOut }) {
             hasBudget={true}
             initialItems={state.monthly.items}
             initialBudget={state.monthly.budget}
+            onStatus={setStatus}
+          />
+          <Ledger
+            index="04"
+            title="Wallets"
+            section="wallets"
+            hasDay={false}
+            hasBudget={false}
+            namePlaceholder="Wallet name"
+            addLabel="Create Wallet"
+            initialItems={state.wallets.items}
+            initialBudget={0}
             onStatus={setStatus}
           />
         </>

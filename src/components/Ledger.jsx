@@ -1,6 +1,27 @@
 import React, { useEffect, useRef, useState } from "react";
 import { api, fmt } from "../api";
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function todayLabel() {
+  const d = new Date();
+  return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+}
+
+function groupByDay(rows) {
+  const order = [];
+  const map = new Map();
+  rows.forEach((row, idx) => {
+    const key = row.day || "";
+    if (!map.has(key)) {
+      map.set(key, []);
+      order.push(key);
+    }
+    map.get(key).push(idx);
+  });
+  return order.map((day) => ({ day, indices: map.get(day) }));
+}
+
 export default function Ledger({
   index,
   title,
@@ -10,7 +31,9 @@ export default function Ledger({
   hasBudget,
   initialItems,
   initialBudget,
-  onStatus
+  onStatus,
+  namePlaceholder = "Item name",
+  addLabel
 }) {
   const [rows, setRows] = useState(() =>
     (initialItems || []).map((r) => ({ day: r.day || "", name: r.name || "", price: Number(r.price) || 0 }))
@@ -45,6 +68,13 @@ export default function Ledger({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, budget]);
 
+  useEffect(() => {
+    if (!hasDay) return;
+    const label = todayLabel();
+    setRows((prev) => (prev.some((r) => r.day === label) ? prev : [...prev, { day: label, name: "", price: 0 }]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const total = rows.reduce((sum, r) => sum + (Number(r.price) || 0), 0);
   const remaining = budget - total;
 
@@ -57,7 +87,11 @@ export default function Ledger({
   }
 
   function addRow() {
-    setRows((prev) => [...prev, hasDay ? { day: "", name: "", price: 0 } : { name: "", price: 0 }]);
+    setRows((prev) => [...prev, hasDay ? { day: todayLabel(), name: "", price: 0 } : { name: "", price: 0 }]);
+  }
+
+  function addRowToDay(day) {
+    setRows((prev) => [...prev, { day, name: "", price: 0 }]);
   }
 
   function removeRow(idx) {
@@ -93,44 +127,78 @@ export default function Ledger({
         </div>
       )}
 
-      <div className={"rows" + (hasDay ? " with-day" : "")}>
-        {rows.length === 0 && <p className="empty-hint">No entries yet — add one below.</p>}
-        {rows.map((row, idx) => (
-          <div className="row" key={idx}>
-            {hasDay && (
-              <input
-                className="cell-day"
-                type="text"
-                placeholder="Day"
-                value={row.day}
-                onChange={(e) => updateRow(idx, "day", e.target.value)}
-              />
-            )}
-            <input
-              className="cell-name"
-              type="text"
-              placeholder="Item name"
-              value={row.name}
-              onChange={(e) => updateRow(idx, "name", e.target.value)}
-            />
-            <input
-              className="cell-price"
-              type="number"
-              placeholder="0"
-              step="1"
-              value={row.price}
-              onChange={(e) => updateRow(idx, "price", e.target.value)}
-            />
-            <button type="button" className="cell-del" aria-label="Remove row" onClick={() => removeRow(idx)}>
-              ×
-            </button>
+      {hasDay ? (
+        <div className="rows grouped">
+          {rows.length === 0 && <p className="empty-hint">No entries yet.</p>}
+          {groupByDay(rows).map(({ day, indices }) => {
+            const dayTotal = indices.reduce((sum, i) => sum + (Number(rows[i].price) || 0), 0);
+            return (
+              <div className="day-group" key={day || "undated"}>
+                <div className="day-group-head">
+                  <span className="day-label">{day || "Undated"}</span>
+                  <span className="day-total">{fmt(dayTotal)}</span>
+                </div>
+                {indices.map((idx) => (
+                  <div className="row" key={idx}>
+                    <input
+                      className="cell-name"
+                      type="text"
+                      placeholder={namePlaceholder}
+                      value={rows[idx].name}
+                      onChange={(e) => updateRow(idx, "name", e.target.value)}
+                    />
+                    <input
+                      className="cell-price"
+                      type="number"
+                      placeholder="0"
+                      step="1"
+                      value={rows[idx].price}
+                      onChange={(e) => updateRow(idx, "price", e.target.value)}
+                    />
+                    <button type="button" className="cell-del" aria-label="Remove row" onClick={() => removeRow(idx)}>
+                      ×
+                    </button>
+                  </div>
+                ))}
+                <button type="button" className="add-row day-add" onClick={() => addRowToDay(day)}>
+                  + Add to {day || "Undated"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <>
+          <div className="rows">
+            {rows.length === 0 && <p className="empty-hint">No entries yet — add one below.</p>}
+            {rows.map((row, idx) => (
+              <div className="row" key={idx}>
+                <input
+                  className="cell-name"
+                  type="text"
+                  placeholder={namePlaceholder}
+                  value={row.name}
+                  onChange={(e) => updateRow(idx, "name", e.target.value)}
+                />
+                <input
+                  className="cell-price"
+                  type="number"
+                  placeholder="0"
+                  step="1"
+                  value={row.price}
+                  onChange={(e) => updateRow(idx, "price", e.target.value)}
+                />
+                <button type="button" className="cell-del" aria-label="Remove row" onClick={() => removeRow(idx)}>
+                  ×
+                </button>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-
-      <button type="button" className="add-row" onClick={addRow}>
-        + Add {hasDay ? "entry" : "item"}
-      </button>
+          <button type="button" className="add-row" onClick={addRow}>
+            + {addLabel || "Add item"}
+          </button>
+        </>
+      )}
     </section>
   );
 }

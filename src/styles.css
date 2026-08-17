@@ -362,10 +362,6 @@ body {
   padding: 6px 0;
 }
 
-.rows.with-day .row {
-  grid-template-columns: 68px 1fr 112px 22px;
-}
-
 .row input {
   font-family: var(--font-sans);
   font-size: 14px;
@@ -378,17 +374,47 @@ body {
   width: 100%;
 }
 
-.row input.cell-day,
 .row input.cell-price {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+  text-align: right;
 }
-
-.row input.cell-price { text-align: right; }
-.row input.cell-day { color: var(--ink-soft); font-size: 12.5px; }
 
 .row input:hover { border-bottom-color: var(--rule-strong); }
 .row input:focus { outline: none; border-bottom-color: var(--focus); }
+
+.day-group { margin-bottom: 18px; }
+.day-group:last-child { margin-bottom: 0; }
+
+.day-group-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 8px 0 6px;
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+.day-label {
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.day-total {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.day-add {
+  font-size: 12px;
+  color: var(--ink-faint);
+  padding-top: 6px;
+}
 
 .cell-del {
   width: 22px;
@@ -439,18 +465,17 @@ footer {
 }
 
 @media (max-width: 480px) {
-  .row, .rows.with-day .row {
+  .row {
     grid-template-columns: 1fr 22px;
     grid-template-areas:
-      "day  del"
       "name del"
       "price del";
     row-gap: 2px;
   }
-  .row .cell-day { grid-area: day; }
   .row .cell-name { grid-area: name; }
   .row .cell-price { grid-area: price; text-align: left; }
   .row .cell-del { grid-area: del; align-self: start; opacity: 1; }
   .budget-strip { flex-direction: column; align-items: stretch; }
   .remaining { text-align: right; }
+  .day-group-head { flex-wrap: wrap; }
 }
