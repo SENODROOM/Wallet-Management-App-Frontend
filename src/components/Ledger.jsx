@@ -33,40 +33,77 @@ export default function Ledger({
   initialBudget,
   onStatus,
   namePlaceholder = "Item name",
-  addLabel
+  addLabel,
+  hasDescription,
+  descriptionPlaceholder = "Add a note…",
+  initialDescription
 }) {
   const [rows, setRows] = useState(() =>
     (initialItems || []).map((r) => ({ day: r.day || "", name: r.name || "", price: Number(r.price) || 0 }))
   );
   const [budget, setBudget] = useState(Number(initialBudget) || 0);
+  const [description, setDescription] = useState(initialDescription || "");
   const mounted = useRef(false);
   const timer = useRef(null);
+  const latestPayload = useRef(null);
+
+  function save(payload, attempt = 0) {
+    api
+      .putSection(section, payload)
+      .then((res) => {
+        if (res.status === 401) {
+          window.location.reload();
+          return;
+        }
+        if (!res.ok) throw new Error("save failed");
+        onStatus("saved");
+      })
+      .catch(() => {
+        if (attempt < 2) {
+          setTimeout(() => save(payload, attempt + 1), 1500 * (attempt + 1));
+        } else {
+          onStatus("error");
+        }
+      });
+  }
 
   useEffect(() => {
     if (!mounted.current) {
       mounted.current = true;
       return;
     }
+    const payload = { items: rows };
+    if (hasBudget) payload.budget = budget;
+    if (hasDescription) payload.description = description;
+    latestPayload.current = payload;
+
     onStatus("saving");
     clearTimeout(timer.current);
     timer.current = setTimeout(() => {
-      const payload = { items: rows };
-      if (hasBudget) payload.budget = budget;
-      api
-        .putSection(section, payload)
-        .then((res) => {
-          if (res.status === 401) {
-            window.location.reload();
-            return;
-          }
-          if (!res.ok) throw new Error("save failed");
-          onStatus("saved");
-        })
-        .catch(() => onStatus("error"));
+      timer.current = null;
+      save(payload);
     }, 500);
     return () => clearTimeout(timer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, budget]);
+  }, [rows, budget, description]);
+
+  // Safety net: if a debounced save is still pending when the tab closes or
+  // this section unmounts, send it immediately instead of silently dropping it.
+  useEffect(() => {
+    function flush() {
+      if (timer.current && latestPayload.current) {
+        clearTimeout(timer.current);
+        timer.current = null;
+        api.putSection(section, latestPayload.current).catch(() => {});
+      }
+    }
+    window.addEventListener("pagehide", flush);
+    return () => {
+      flush();
+      window.removeEventListener("pagehide", flush);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!hasDay) return;
@@ -125,6 +162,16 @@ export default function Ledger({
           </label>
           <span className={"remaining" + (remaining < 0 ? " negative" : "")}>Remaining {fmt(remaining)}</span>
         </div>
+      )}
+
+      {hasDescription && (
+        <textarea
+          className="description-field"
+          placeholder={descriptionPlaceholder}
+          rows={2}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
       )}
 
       {hasDay ? (

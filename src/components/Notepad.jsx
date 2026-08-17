@@ -21,6 +21,17 @@ export default function Notepad({ email, onLoggedOut }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    function warnIfUnsaved(e) {
+      if (status === "saving" || status === "error") {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    }
+    window.addEventListener("beforeunload", warnIfUnsaved);
+    return () => window.removeEventListener("beforeunload", warnIfUnsaved);
+  }, [status]);
+
   async function logout() {
     await api.logout().catch(() => {});
     onLoggedOut();
@@ -78,8 +89,11 @@ export default function Notepad({ email, onLoggedOut }) {
             section="monthly"
             hasDay={true}
             hasBudget={true}
+            hasDescription={true}
+            descriptionPlaceholder="Add a note about this month's budget…"
             initialItems={state.monthly.items}
             initialBudget={state.monthly.budget}
+            initialDescription={state.monthly.description}
             onStatus={setStatus}
           />
           <Ledger

@@ -14,7 +14,7 @@ export const api = {
   logout: () => request("/api/auth/logout", { method: "POST" }),
   getState: () => request("/api/state"),
   putSection: (section, payload) =>
-    request(`/api/state/${section}`, { method: "PUT", body: JSON.stringify(payload) })
+    request(`/api/state/${section}`, { method: "PUT", body: JSON.stringify(payload), keepalive: true })
 };
 
 export const fmt = (n) => "Rs. " + (Number(n) || 0).toLocaleString("en-PK");

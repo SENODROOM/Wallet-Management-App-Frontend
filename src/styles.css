@@ -351,6 +351,30 @@ body {
 }
 .remaining.negative { color: var(--negative); }
 
+.description-field {
+  display: block;
+  width: 100%;
+  margin: 0 0 14px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink-soft);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-style: italic;
+  line-height: 1.5;
+  padding: 6px 2px;
+  resize: vertical;
+  min-height: 1.6em;
+}
+.description-field::placeholder { color: var(--ink-faint); }
+.description-field:hover { border-bottom-color: var(--rule-strong); }
+.description-field:focus {
+  outline: none;
+  border-bottom-color: var(--focus);
+  font-style: normal;
+}
+
 .rows { display: flex; flex-direction: column; }
 
 .row {
