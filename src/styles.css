@@ -454,6 +454,7 @@ body {
 }
 
 .row:hover .cell-del,
+.wallet-head:hover .cell-del,
 .cell-del:focus-visible {
   opacity: 1;
 }
@@ -479,6 +480,87 @@ body {
   cursor: pointer;
 }
 .add-row:hover { color: var(--accent); }
+
+.wallet-list { display: flex; flex-direction: column; }
+
+.wallet-group { border-bottom: 1px solid var(--rule); }
+.wallet-group:last-child { border-bottom: none; }
+
+.wallet-head {
+  display: grid;
+  grid-template-columns: 20px 1fr 100px 100px 22px;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.wallet-toggle {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid var(--rule-strong);
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.wallet-toggle:hover { border-color: var(--accent); }
+.wallet-toggle.active {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.wallet-name,
+.wallet-balance {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  padding: 5px 2px;
+  min-width: 0;
+  width: 100%;
+}
+.wallet-name:hover, .wallet-balance:hover { border-bottom-color: var(--rule-strong); }
+.wallet-name:focus, .wallet-balance:focus { outline: none; border-bottom-color: var(--focus); }
+
+.wallet-balance {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.wallet-total {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: var(--ink-soft);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.wallet-items {
+  margin: 0 0 12px 30px;
+  padding-left: 14px;
+  border-left: 2px solid var(--rule);
+}
+
+@media (max-width: 480px) {
+  .wallet-head {
+    grid-template-columns: 20px 1fr 22px;
+    grid-template-areas:
+      "toggle name del"
+      ".      balance del"
+      ".      total  del";
+    row-gap: 2px;
+  }
+  .wallet-toggle { grid-area: toggle; }
+  .wallet-name { grid-area: name; }
+  .wallet-balance { grid-area: balance; text-align: left; }
+  .wallet-total { grid-area: total; text-align: left; }
+  .wallet-head .cell-del { grid-area: del; align-self: start; opacity: 1; }
+  .wallet-items { margin-left: 20px; }
+}
 
 footer {
   color: var(--ink-faint);

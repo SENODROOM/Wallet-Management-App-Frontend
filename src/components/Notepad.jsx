@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../api";
 import Ledger from "./Ledger.jsx";
+import Wallets from "./Wallets.jsx";
 
 const STATUS_LABEL = { saving: "Saving…", saved: "Synced", error: "Save failed" };
 
@@ -96,16 +97,11 @@ export default function Notepad({ email, onLoggedOut }) {
             initialDescription={state.monthly.description}
             onStatus={setStatus}
           />
-          <Ledger
+          <Wallets
             index="04"
             title="Wallets"
             section="wallets"
-            hasDay={false}
-            hasBudget={false}
-            namePlaceholder="Wallet name"
-            addLabel="Create Wallet"
             initialItems={state.wallets.items}
-            initialBudget={0}
             onStatus={setStatus}
           />
         </>
