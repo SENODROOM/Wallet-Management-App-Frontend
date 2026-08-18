@@ -481,6 +481,14 @@ body {
 }
 .add-row:hover { color: var(--accent); }
 
+.wallet-active-hint {
+  font-size: 12.5px;
+  font-style: italic;
+  color: var(--ink-soft);
+  margin: -4px 0 12px;
+}
+.wallet-active-hint strong { color: var(--accent); font-style: normal; }
+
 .wallet-list { display: flex; flex-direction: column; }
 
 .wallet-group { border-bottom: 1px solid var(--rule); }

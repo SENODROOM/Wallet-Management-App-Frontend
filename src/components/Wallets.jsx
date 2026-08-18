@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { api, fmt } from "../api";
 
-export default function Wallets({ index, title, section, initialItems, onStatus }) {
+const Wallets = forwardRef(function Wallets({ index, title, section, initialItems, onStatus }, ref) {
   const [wallets, setWallets] = useState(() =>
     (initialItems || []).map((w) => ({
       name: w.name || "",
@@ -9,10 +9,23 @@ export default function Wallets({ index, title, section, initialItems, onStatus 
       items: (w.items || []).map((i) => ({ name: i.name || "", price: Number(i.price) || 0 }))
     }))
   );
-  const [expanded, setExpanded] = useState(() => new Set());
+  const [activeIndex, setActiveIndex] = useState(null);
   const mounted = useRef(false);
   const timer = useRef(null);
   const latestPayload = useRef(null);
+
+  useImperativeHandle(ref, () => ({
+    // Called when an item's price changes elsewhere (Income/Poly/Monthly) so
+    // the currently selected wallet's balance tracks it automatically.
+    adjustBalance(delta) {
+      setWallets((prev) => {
+        if (activeIndex === null || !prev[activeIndex]) return prev;
+        const next = [...prev];
+        next[activeIndex] = { ...next[activeIndex], price: (Number(next[activeIndex].price) || 0) - delta };
+        return next;
+      });
+    }
+  }));
 
   function save(payload, attempt = 0) {
     api
@@ -68,13 +81,8 @@ export default function Wallets({ index, title, section, initialItems, onStatus 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function toggleExpanded(idx) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(idx)) next.delete(idx);
-      else next.add(idx);
-      return next;
-    });
+  function toggleActive(idx) {
+    setActiveIndex((prev) => (prev === idx ? null : idx));
   }
 
   function updateWallet(idx, field, value) {
@@ -87,20 +95,17 @@ export default function Wallets({ index, title, section, initialItems, onStatus 
 
   function addWallet() {
     setWallets((prev) => {
-      setExpanded((exp) => new Set(exp).add(prev.length));
+      setActiveIndex(prev.length);
       return [...prev, { name: "", price: 0, items: [] }];
     });
   }
 
   function removeWallet(idx) {
     setWallets((prev) => prev.filter((_, i) => i !== idx));
-    setExpanded((prev) => {
-      const next = new Set();
-      prev.forEach((i) => {
-        if (i < idx) next.add(i);
-        else if (i > idx) next.add(i - 1);
-      });
-      return next;
+    setActiveIndex((prev) => {
+      if (prev === idx) return null;
+      if (prev !== null && prev > idx) return prev - 1;
+      return prev;
     });
   }
 
@@ -143,19 +148,26 @@ export default function Wallets({ index, title, section, initialItems, onStatus 
         <span className="ledger-total">{fmt(grandTotal)}</span>
       </div>
 
+      {activeIndex !== null && wallets[activeIndex] && (
+        <p className="wallet-active-hint">
+          Items added in Income, Poly Learning Initiative, and Monthly Budget will deduct from{" "}
+          <strong>{wallets[activeIndex].name || "this wallet"}</strong>.
+        </p>
+      )}
+
       <div className="wallet-list">
         {wallets.length === 0 && <p className="empty-hint">No wallets yet — create one below.</p>}
         {wallets.map((wallet, widx) => {
-          const isOpen = expanded.has(widx);
+          const isOpen = widx === activeIndex;
           return (
             <div className="wallet-group" key={widx}>
               <div className="wallet-head">
                 <button
                   type="button"
                   className={"wallet-toggle" + (isOpen ? " active" : "")}
-                  aria-label={isOpen ? "Collapse wallet" : "Select wallet"}
+                  aria-label={isOpen ? "Deselect wallet" : "Select wallet"}
                   aria-pressed={isOpen}
-                  onClick={() => toggleExpanded(widx)}
+                  onClick={() => toggleActive(widx)}
                 />
                 <input
                   className="wallet-name"
@@ -227,4 +239,6 @@ export default function Wallets({ index, title, section, initialItems, onStatus 
       </button>
     </section>
   );
-}
+});
+
+export default Wallets;

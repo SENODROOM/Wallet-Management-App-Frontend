@@ -36,7 +36,8 @@ export default function Ledger({
   addLabel,
   hasDescription,
   descriptionPlaceholder = "Add a note…",
-  initialDescription
+  initialDescription,
+  onPriceDelta
 }) {
   const [rows, setRows] = useState(() =>
     (initialItems || []).map((r) => ({ day: r.day || "", name: r.name || "", price: Number(r.price) || 0 }))
@@ -116,9 +117,13 @@ export default function Ledger({
   const remaining = budget - total;
 
   function updateRow(idx, field, value) {
+    const nextValue = field === "price" ? (value === "" ? 0 : Number(value)) : value;
+    if (field === "price" && onPriceDelta) {
+      onPriceDelta(nextValue - (Number(rows[idx].price) || 0));
+    }
     setRows((prev) => {
       const next = [...prev];
-      next[idx] = { ...next[idx], [field]: field === "price" ? (value === "" ? 0 : Number(value)) : value };
+      next[idx] = { ...next[idx], [field]: nextValue };
       return next;
     });
   }
@@ -132,6 +137,7 @@ export default function Ledger({
   }
 
   function removeRow(idx) {
+    if (onPriceDelta) onPriceDelta(-(Number(rows[idx].price) || 0));
     setRows((prev) => prev.filter((_, i) => i !== idx));
   }
 

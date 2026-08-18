@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import Ledger from "./Ledger.jsx";
 import Wallets from "./Wallets.jsx";
@@ -9,6 +9,11 @@ export default function Notepad({ email, onLoggedOut }) {
   const [state, setState] = useState(null);
   const [loadError, setLoadError] = useState(false);
   const [status, setStatus] = useState("saved");
+  const walletsRef = useRef(null);
+
+  function handlePriceDelta(delta) {
+    walletsRef.current?.adjustBalance(delta);
+  }
 
   useEffect(() => {
     api
@@ -72,6 +77,7 @@ export default function Notepad({ email, onLoggedOut }) {
             initialItems={state.income.items}
             initialBudget={0}
             onStatus={setStatus}
+            onPriceDelta={handlePriceDelta}
           />
           <Ledger
             index="02"
@@ -82,6 +88,7 @@ export default function Notepad({ email, onLoggedOut }) {
             initialItems={state.poly.items}
             initialBudget={state.poly.budget}
             onStatus={setStatus}
+            onPriceDelta={handlePriceDelta}
           />
           <Ledger
             index="03"
@@ -96,8 +103,10 @@ export default function Notepad({ email, onLoggedOut }) {
             initialBudget={state.monthly.budget}
             initialDescription={state.monthly.description}
             onStatus={setStatus}
+            onPriceDelta={handlePriceDelta}
           />
           <Wallets
+            ref={walletsRef}
             index="04"
             title="Wallets"
             section="wallets"
