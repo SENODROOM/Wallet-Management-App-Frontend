@@ -10,9 +10,12 @@ const Wallets = forwardRef(function Wallets({ index, title, section, initialItem
     }))
   );
   const [activeIndex, setActiveIndex] = useState(null);
+  const [adjust, setAdjust] = useState(null); // { idx, mode: "add" | "sub" } | null
+  const [adjustValue, setAdjustValue] = useState("");
   const mounted = useRef(false);
   const timer = useRef(null);
   const latestPayload = useRef(null);
+  const adjustInputRef = useRef(null);
 
   useImperativeHandle(ref, () => ({
     // Called when an item's price changes elsewhere (Income/Poly/Monthly) so
@@ -81,8 +84,49 @@ const Wallets = forwardRef(function Wallets({ index, title, section, initialItem
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (adjust && adjustInputRef.current) adjustInputRef.current.focus();
+  }, [adjust]);
+
   function toggleActive(idx) {
     setActiveIndex((prev) => (prev === idx ? null : idx));
+  }
+
+  function openAdjust(idx, mode) {
+    setAdjust((prev) => (prev && prev.idx === idx && prev.mode === mode ? null : { idx, mode }));
+    setAdjustValue("");
+  }
+
+  function closeAdjust() {
+    setAdjust(null);
+    setAdjustValue("");
+  }
+
+  function applyAdjust() {
+    if (!adjust) return;
+    const amount = Number(adjustValue);
+    if (!adjustValue || Number.isNaN(amount)) {
+      closeAdjust();
+      return;
+    }
+    const delta = adjust.mode === "add" ? amount : -amount;
+    const idx = adjust.idx;
+    setWallets((prev) => {
+      const next = [...prev];
+      next[idx] = { ...next[idx], price: (Number(next[idx].price) || 0) + delta };
+      return next;
+    });
+    closeAdjust();
+  }
+
+  function handleAdjustKeyDown(e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      applyAdjust();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      closeAdjust();
+    }
   }
 
   function updateWallet(idx, field, value) {
@@ -109,32 +153,6 @@ const Wallets = forwardRef(function Wallets({ index, title, section, initialItem
     });
   }
 
-  function updateItem(walletIdx, itemIdx, field, value) {
-    setWallets((prev) => {
-      const next = [...prev];
-      const items = [...next[walletIdx].items];
-      items[itemIdx] = { ...items[itemIdx], [field]: field === "price" ? (value === "" ? 0 : Number(value)) : value };
-      next[walletIdx] = { ...next[walletIdx], items };
-      return next;
-    });
-  }
-
-  function addItem(walletIdx) {
-    setWallets((prev) => {
-      const next = [...prev];
-      next[walletIdx] = { ...next[walletIdx], items: [...next[walletIdx].items, { name: "", price: 0 }] };
-      return next;
-    });
-  }
-
-  function removeItem(walletIdx, itemIdx) {
-    setWallets((prev) => {
-      const next = [...prev];
-      next[walletIdx] = { ...next[walletIdx], items: next[walletIdx].items.filter((_, i) => i !== itemIdx) };
-      return next;
-    });
-  }
-
   const walletTotal = (w) => (Number(w.price) || 0) + w.items.reduce((sum, i) => sum + (Number(i.price) || 0), 0);
   const grandTotal = wallets.reduce((sum, w) => sum + walletTotal(w), 0);
 
@@ -158,15 +176,15 @@ const Wallets = forwardRef(function Wallets({ index, title, section, initialItem
       <div className="wallet-list">
         {wallets.length === 0 && <p className="empty-hint">No wallets yet — create one below.</p>}
         {wallets.map((wallet, widx) => {
-          const isOpen = widx === activeIndex;
+          const isActive = widx === activeIndex;
           return (
             <div className="wallet-group" key={widx}>
               <div className="wallet-head">
                 <button
                   type="button"
-                  className={"wallet-toggle" + (isOpen ? " active" : "")}
-                  aria-label={isOpen ? "Deselect wallet" : "Select wallet"}
-                  aria-pressed={isOpen}
+                  className={"wallet-toggle" + (isActive ? " active" : "")}
+                  aria-label={isActive ? "Deselect wallet" : "Select wallet"}
+                  aria-pressed={isActive}
                   onClick={() => toggleActive(widx)}
                 />
                 <input
@@ -185,6 +203,24 @@ const Wallets = forwardRef(function Wallets({ index, title, section, initialItem
                   onChange={(e) => updateWallet(widx, "price", e.target.value)}
                 />
                 <span className="wallet-total">{fmt(walletTotal(wallet))}</span>
+                <div className="wallet-adjust-btns">
+                  <button
+                    type="button"
+                    className={"wallet-adjust-btn" + (adjust && adjust.idx === widx && adjust.mode === "add" ? " active" : "")}
+                    aria-label="Add amount"
+                    onClick={() => openAdjust(widx, "add")}
+                  >
+                    +
+                  </button>
+                  <button
+                    type="button"
+                    className={"wallet-adjust-btn" + (adjust && adjust.idx === widx && adjust.mode === "sub" ? " active" : "")}
+                    aria-label="Subtract amount"
+                    onClick={() => openAdjust(widx, "sub")}
+                  >
+                    −
+                  </button>
+                </div>
                 <button
                   type="button"
                   className="cell-del"
@@ -195,37 +231,24 @@ const Wallets = forwardRef(function Wallets({ index, title, section, initialItem
                 </button>
               </div>
 
-              {isOpen && (
-                <div className="wallet-items">
-                  {wallet.items.map((item, iidx) => (
-                    <div className="row" key={iidx}>
-                      <input
-                        className="cell-name"
-                        type="text"
-                        placeholder="Item name"
-                        value={item.name}
-                        onChange={(e) => updateItem(widx, iidx, "name", e.target.value)}
-                      />
-                      <input
-                        className="cell-price"
-                        type="number"
-                        placeholder="0"
-                        step="1"
-                        value={item.price}
-                        onChange={(e) => updateItem(widx, iidx, "price", e.target.value)}
-                      />
-                      <button
-                        type="button"
-                        className="cell-del"
-                        aria-label="Remove item"
-                        onClick={() => removeItem(widx, iidx)}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                  <button type="button" className="add-row" onClick={() => addItem(widx)}>
-                    + Add item
+              {adjust && adjust.idx === widx && (
+                <div className="wallet-adjust-box">
+                  <span className="wallet-adjust-label">{adjust.mode === "add" ? "Add to" : "Subtract from"} {wallet.name || "wallet"}</span>
+                  <input
+                    ref={adjustInputRef}
+                    type="number"
+                    className="wallet-adjust-input"
+                    placeholder="0"
+                    step="1"
+                    value={adjustValue}
+                    onChange={(e) => setAdjustValue(e.target.value)}
+                    onKeyDown={handleAdjustKeyDown}
+                  />
+                  <button type="button" className="wallet-adjust-confirm" onClick={applyAdjust}>
+                    OK
+                  </button>
+                  <button type="button" className="wallet-adjust-cancel" onClick={closeAdjust}>
+                    Cancel
                   </button>
                 </div>
               )}
