@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { api } from "../api";
+import { api, fmt } from "../api";
 import Ledger from "./Ledger.jsx";
 import Wallets from "./Wallets.jsx";
 
@@ -9,7 +9,10 @@ export default function Notepad({ email, onLoggedOut }) {
   const [state, setState] = useState(null);
   const [loadError, setLoadError] = useState(false);
   const [status, setStatus] = useState("saved");
+  const [walletsTotal, setWalletsTotal] = useState(0);
+  const [monthlyRemaining, setMonthlyRemaining] = useState(0);
   const walletsRef = useRef(null);
+  const saadIncome = walletsTotal - monthlyRemaining;
 
   function handlePriceDelta(delta) {
     walletsRef.current?.adjustBalance(delta);
@@ -104,6 +107,7 @@ export default function Notepad({ email, onLoggedOut }) {
             initialDescription={state.monthly.description}
             onStatus={setStatus}
             onPriceDelta={handlePriceDelta}
+            onRemainingChange={setMonthlyRemaining}
           />
           <Wallets
             ref={walletsRef}
@@ -112,11 +116,19 @@ export default function Notepad({ email, onLoggedOut }) {
             section="wallets"
             initialItems={state.wallets.items}
             onStatus={setStatus}
+            onTotalChange={setWalletsTotal}
           />
         </>
       )}
 
-      <footer>Data is stored in MongoDB via the Express API. Changes save automatically a moment after you stop typing.</footer>
+      <footer className="app-footer">
+        <span>Data is stored in MongoDB via the Express API. Changes save automatically a moment after you stop typing.</span>
+        {state && (
+          <span className="saad-income">
+            Saad Income: <strong>{fmt(saadIncome)}</strong>
+          </span>
+        )}
+      </footer>
     </div>
   );
 }

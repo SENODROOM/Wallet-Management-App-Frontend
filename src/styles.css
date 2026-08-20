@@ -699,6 +699,22 @@ footer {
   margin-top: 20px;
 }
 
+.app-footer {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+
+.saad-income {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.saad-income strong { color: var(--accent); font-weight: 600; }
+
 @media (max-width: 480px) {
   .row {
     grid-template-columns: 1fr 22px;

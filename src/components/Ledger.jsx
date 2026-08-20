@@ -37,7 +37,8 @@ export default function Ledger({
   hasDescription,
   descriptionPlaceholder = "Add a note…",
   initialDescription,
-  onPriceDelta
+  onPriceDelta,
+  onRemainingChange
 }) {
   const [rows, setRows] = useState(() =>
     (initialItems || []).map((r) => ({ day: r.day || "", name: r.name || "", price: Number(r.price) || 0 }))
@@ -115,6 +116,11 @@ export default function Ledger({
 
   const total = rows.reduce((sum, r) => sum + (Number(r.price) || 0), 0);
   const remaining = budget - total;
+
+  useEffect(() => {
+    if (hasBudget) onRemainingChange?.(remaining);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remaining, hasBudget]);
 
   function updateRow(idx, field, value) {
     const nextValue = field === "price" ? (value === "" ? 0 : Number(value)) : value;

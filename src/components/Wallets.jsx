@@ -1,7 +1,7 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { api, fmt } from "../api";
 
-const Wallets = forwardRef(function Wallets({ index, title, section, initialItems, onStatus }, ref) {
+const Wallets = forwardRef(function Wallets({ index, title, section, initialItems, onStatus, onTotalChange }, ref) {
   const [wallets, setWallets] = useState(() =>
     (initialItems || []).map((w) => ({
       name: w.name || "",
@@ -202,6 +202,11 @@ const Wallets = forwardRef(function Wallets({ index, title, section, initialItem
 
   const walletTotal = (w) => (Number(w.price) || 0) + w.items.reduce((sum, i) => sum + (Number(i.price) || 0), 0);
   const grandTotal = wallets.reduce((sum, w) => sum + walletTotal(w), 0);
+
+  useEffect(() => {
+    onTotalChange?.(grandTotal);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grandTotal]);
 
   return (
     <section className="ledger">
