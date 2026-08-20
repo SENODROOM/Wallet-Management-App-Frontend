@@ -12,6 +12,8 @@ const Wallets = forwardRef(function Wallets({ index, title, section, initialItem
   const [activeIndex, setActiveIndex] = useState(null);
   const [adjust, setAdjust] = useState(null); // { idx, mode: "add" | "sub" } | null
   const [adjustValue, setAdjustValue] = useState("");
+  const [transferTarget, setTransferTarget] = useState("");
+  const [transferAmount, setTransferAmount] = useState("");
   const mounted = useRef(false);
   const timer = useRef(null);
   const latestPayload = useRef(null);
@@ -90,6 +92,31 @@ const Wallets = forwardRef(function Wallets({ index, title, section, initialItem
 
   function toggleActive(idx) {
     setActiveIndex((prev) => (prev === idx ? null : idx));
+    setTransferTarget("");
+    setTransferAmount("");
+  }
+
+  function doTransfer() {
+    if (activeIndex === null || transferTarget === "") return;
+    const targetIdx = Number(transferTarget);
+    const amount = Number(transferAmount);
+    if (!transferAmount || Number.isNaN(amount) || amount <= 0) return;
+    setWallets((prev) => {
+      if (!prev[activeIndex] || !prev[targetIdx]) return prev;
+      const next = [...prev];
+      next[activeIndex] = { ...next[activeIndex], price: (Number(next[activeIndex].price) || 0) - amount };
+      next[targetIdx] = { ...next[targetIdx], price: (Number(next[targetIdx].price) || 0) + amount };
+      return next;
+    });
+    setTransferAmount("");
+    setTransferTarget("");
+  }
+
+  function handleTransferKeyDown(e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      doTransfer();
+    }
   }
 
   function openAdjust(idx, mode) {
@@ -167,10 +194,49 @@ const Wallets = forwardRef(function Wallets({ index, title, section, initialItem
       </div>
 
       {activeIndex !== null && wallets[activeIndex] && (
-        <p className="wallet-active-hint">
-          Items added in Income, Poly Learning Initiative, and Monthly Budget will deduct from{" "}
-          <strong>{wallets[activeIndex].name || "this wallet"}</strong>.
-        </p>
+        <>
+          <p className="wallet-active-hint">
+            Items added in Income, Poly Learning Initiative, and Monthly Budget will deduct from{" "}
+            <strong>{wallets[activeIndex].name || "this wallet"}</strong>.
+          </p>
+
+          <div className="wallet-transfer">
+            <span className="wallet-transfer-label">
+              Transfer from <strong>{wallets[activeIndex].name || "this wallet"}</strong> to
+            </span>
+            <select
+              className="wallet-transfer-select"
+              value={transferTarget}
+              onChange={(e) => setTransferTarget(e.target.value)}
+            >
+              <option value="">Select wallet</option>
+              {wallets.map((w, i) =>
+                i === activeIndex ? null : (
+                  <option key={i} value={i}>
+                    {w.name || `Wallet ${i + 1}`}
+                  </option>
+                )
+              )}
+            </select>
+            <input
+              type="number"
+              className="wallet-transfer-amount"
+              placeholder="Amount"
+              step="1"
+              value={transferAmount}
+              onChange={(e) => setTransferAmount(e.target.value)}
+              onKeyDown={handleTransferKeyDown}
+            />
+            <button
+              type="button"
+              className="wallet-transfer-btn"
+              disabled={transferTarget === "" || !transferAmount}
+              onClick={doTransfer}
+            >
+              Transfer
+            </button>
+          </div>
+        </>
       )}
 
       <div className="wallet-list">
