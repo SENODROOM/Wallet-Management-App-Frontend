@@ -18,6 +18,7 @@ const Wallets = forwardRef(function Wallets({ index, title, section, initialItem
   const timer = useRef(null);
   const latestPayload = useRef(null);
   const adjustInputRef = useRef(null);
+  const skipNextSchedule = useRef(false);
 
   useImperativeHandle(ref, () => ({
     // Called when an item's price changes elsewhere (Income/Poly/Monthly) so
@@ -57,6 +58,10 @@ const Wallets = forwardRef(function Wallets({ index, title, section, initialItem
       mounted.current = true;
       return;
     }
+    if (skipNextSchedule.current) {
+      skipNextSchedule.current = false;
+      return;
+    }
     const payload = { items: wallets };
     latestPayload.current = payload;
 
@@ -69,6 +74,18 @@ const Wallets = forwardRef(function Wallets({ index, title, section, initialItem
     return () => clearTimeout(timer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallets]);
+
+  // Explicit confirm actions (adjust OK, transfer) save right away instead of
+  // waiting on the keystroke debounce, so a quick refresh right after can't lose them.
+  function saveNow(nextWallets) {
+    const payload = { items: nextWallets };
+    latestPayload.current = payload;
+    clearTimeout(timer.current);
+    timer.current = null;
+    skipNextSchedule.current = true;
+    onStatus("saving");
+    save(payload);
+  }
 
   useEffect(() => {
     function flush() {
@@ -106,6 +123,7 @@ const Wallets = forwardRef(function Wallets({ index, title, section, initialItem
       const next = [...prev];
       next[activeIndex] = { ...next[activeIndex], price: (Number(next[activeIndex].price) || 0) - amount };
       next[targetIdx] = { ...next[targetIdx], price: (Number(next[targetIdx].price) || 0) + amount };
+      saveNow(next);
       return next;
     });
     setTransferAmount("");
@@ -139,8 +157,10 @@ const Wallets = forwardRef(function Wallets({ index, title, section, initialItem
     const delta = adjust.mode === "add" ? amount : -amount;
     const idx = adjust.idx;
     setWallets((prev) => {
+      if (!prev[idx]) return prev;
       const next = [...prev];
       next[idx] = { ...next[idx], price: (Number(next[idx].price) || 0) + delta };
+      saveNow(next);
       return next;
     });
     closeAdjust();
