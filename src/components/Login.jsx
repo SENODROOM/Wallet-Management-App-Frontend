@@ -20,7 +20,7 @@ export default function Login({ onAuthed }) {
         setError(body.error || "Something went wrong.");
         return;
       }
-      onAuthed(body.email);
+      onAuthed(body.email, body.name);
     } catch (err) {
       setError("Could not reach the server.");
     } finally {

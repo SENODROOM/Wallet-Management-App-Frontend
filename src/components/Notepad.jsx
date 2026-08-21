@@ -7,8 +7,9 @@ import CustomNotepads from "./CustomNotepads.jsx";
 const STATUS_LABEL = { saving: "Saving…", saved: "Synced", error: "Save failed" };
 const ADMIN_EMAIL = "saadamin691@gmail.com";
 
-export default function Notepad({ email, onLoggedOut }) {
+export default function Notepad({ email, name, onLoggedOut }) {
   const isAdmin = email === ADMIN_EMAIL;
+  const firstName = (name || "").trim().split(/\s+/)[0] || "Your";
   const [state, setState] = useState(null);
   const [loadError, setLoadError] = useState(false);
   const [status, setStatus] = useState("saved");
@@ -16,7 +17,7 @@ export default function Notepad({ email, onLoggedOut }) {
   const [monthlyRemaining, setMonthlyRemaining] = useState(0);
   const [notepadsCount, setNotepadsCount] = useState(isAdmin ? 2 : null);
   const walletsRef = useRef(null);
-  const saadIncome = walletsTotal - monthlyRemaining;
+  const userIncome = walletsTotal - monthlyRemaining;
   const tailReady = isAdmin || notepadsCount !== null;
   const monthlyIndex = isAdmin ? "03" : String((notepadsCount || 0) + 1).padStart(2, "0");
   const walletsIndex = isAdmin ? "04" : String((notepadsCount || 0) + 2).padStart(2, "0");
@@ -148,14 +149,13 @@ export default function Notepad({ email, onLoggedOut }) {
         </>
       )}
 
-      <footer className="app-footer">
-        <span>For customization contact us +92 3714467235 — © Muhammad Saad Amin @SENODROOM</span>
-        {isAdmin && state && (
-          <span className="saad-income">
-            Saad Income: <strong>{fmt(saadIncome)}</strong>
-          </span>
-        )}
-      </footer>
+      {state && (
+        <div className="income-stat">
+          {firstName} Income: <strong>{fmt(userIncome)}</strong>
+        </div>
+      )}
+
+      <footer>For customization contact us +92 3714467235 — © Muhammad Saad Amin @SENODROOM</footer>
     </div>
   );
 }

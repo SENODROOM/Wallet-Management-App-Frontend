@@ -180,6 +180,53 @@ body {
 .auth-form button[type="submit"]:hover { opacity: 0.88; }
 .auth-form button[type="submit"]:disabled { opacity: 0.5; cursor: default; }
 
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 1000;
+  animation: modal-fade 0.15s ease-out;
+}
+
+@keyframes modal-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 340px;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule-strong);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  padding: 32px 28px;
+  animation: modal-rise 0.18s ease-out;
+}
+
+@keyframes modal-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.modal-title {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 26px;
+  margin: 0 0 8px;
+  letter-spacing: -0.01em;
+}
+
+.modal-subtitle {
+  margin: 0 0 26px;
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
 /* ---------- Notepad page ---------- */
 
 .page {
@@ -795,21 +842,14 @@ footer {
   margin-top: 20px;
 }
 
-.app-footer {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px 20px;
-}
-
-.saad-income {
+.income-stat {
+  text-align: right;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+  font-size: 13.5px;
   color: var(--ink-soft);
-  white-space: nowrap;
 }
-.saad-income strong { color: var(--accent); font-weight: 600; }
+.income-stat strong { color: var(--accent); font-weight: 600; }
 
 @media (max-width: 480px) {
   .row {

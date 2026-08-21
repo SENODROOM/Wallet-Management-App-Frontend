@@ -12,6 +12,7 @@ export const api = {
   signup: (email, password) =>
     request("/api/auth/signup", { method: "POST", body: JSON.stringify({ email, password }) }),
   logout: () => request("/api/auth/logout", { method: "POST" }),
+  setName: (name) => request("/api/auth/name", { method: "PUT", body: JSON.stringify({ name }) }),
   getState: () => request("/api/state"),
   putSection: (section, payload) =>
     request(`/api/state/${section}`, { method: "PUT", body: JSON.stringify(payload), keepalive: true }),
