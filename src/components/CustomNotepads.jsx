@@ -118,8 +118,8 @@ export default function CustomNotepads({ startIndex, onStatus, onPriceDelta, onC
           </button>
         </div>
       ) : (
-        <button type="button" className="add-row" onClick={startCreate}>
-          + Add Notepad
+        <button type="button" className="notepad-add-btn" onClick={startCreate}>
+          <span className="notepad-add-plus">+</span> Add Notepad
         </button>
       )}
     </>
