@@ -149,7 +149,7 @@ export default function Notepad({ email, onLoggedOut }) {
       )}
 
       <footer className="app-footer">
-        <span>Data is stored in MongoDB via the Express API. Changes save automatically a moment after you stop typing.</span>
+        <span>For customization contact us +92 3714467235 — © Muhammad Saad Amin @SENODROOM</span>
         {isAdmin && state && (
           <span className="saad-income">
             Saad Income: <strong>{fmt(saadIncome)}</strong>
