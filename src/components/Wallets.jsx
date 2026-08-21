@@ -221,7 +221,7 @@ const Wallets = forwardRef(function Wallets({ index, title, section, initialItem
       {activeIndex !== null && wallets[activeIndex] && (
         <>
           <p className="wallet-active-hint">
-            Items added in Income, Poly Learning Initiative, and Monthly Budget will deduct from{" "}
+            Items added elsewhere in this notepad will deduct from{" "}
             <strong>{wallets[activeIndex].name || "this wallet"}</strong>.
           </p>
 

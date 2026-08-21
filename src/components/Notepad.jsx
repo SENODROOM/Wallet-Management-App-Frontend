@@ -2,17 +2,24 @@ import React, { useEffect, useRef, useState } from "react";
 import { api, fmt } from "../api";
 import Ledger from "./Ledger.jsx";
 import Wallets from "./Wallets.jsx";
+import CustomNotepads from "./CustomNotepads.jsx";
 
 const STATUS_LABEL = { saving: "Saving…", saved: "Synced", error: "Save failed" };
+const ADMIN_EMAIL = "saadamin691@gmail.com";
 
 export default function Notepad({ email, onLoggedOut }) {
+  const isAdmin = email === ADMIN_EMAIL;
   const [state, setState] = useState(null);
   const [loadError, setLoadError] = useState(false);
   const [status, setStatus] = useState("saved");
   const [walletsTotal, setWalletsTotal] = useState(0);
   const [monthlyRemaining, setMonthlyRemaining] = useState(0);
+  const [notepadsCount, setNotepadsCount] = useState(isAdmin ? 2 : null);
   const walletsRef = useRef(null);
   const saadIncome = walletsTotal - monthlyRemaining;
+  const tailReady = isAdmin || notepadsCount !== null;
+  const monthlyIndex = isAdmin ? "03" : String((notepadsCount || 0) + 1).padStart(2, "0");
+  const walletsIndex = isAdmin ? "04" : String((notepadsCount || 0) + 2).padStart(2, "0");
 
   function handlePriceDelta(delta) {
     walletsRef.current?.adjustBalance(delta);
@@ -60,7 +67,11 @@ export default function Notepad({ email, onLoggedOut }) {
 
       <header className="masthead">
         <h1>Wallet Notepad</h1>
-        <p>Quantum Logics Income, Poly Learning Initiative, an adjustable Monthly Budget, and your Wallets.</p>
+        <p>
+          {isAdmin
+            ? "Quantum Logics Income, Poly Learning Initiative, an adjustable Monthly Budget, and your Wallets."
+            : "Your own notepads, an adjustable Monthly Budget, and your Wallets."}
+        </p>
       </header>
 
       {loadError && (
@@ -71,59 +82,75 @@ export default function Notepad({ email, onLoggedOut }) {
 
       {state && (
         <>
-          <Ledger
-            index="01"
-            title="Quantum Logics Income"
-            section="income"
-            hasDay={false}
-            hasBudget={false}
-            initialItems={state.income.items}
-            initialBudget={0}
-            onStatus={setStatus}
-            onPriceDelta={handlePriceDelta}
-          />
-          <Ledger
-            index="02"
-            title="Poly Learning Initiative"
-            section="poly"
-            hasDay={false}
-            hasBudget={true}
-            initialItems={state.poly.items}
-            initialBudget={state.poly.budget}
-            onStatus={setStatus}
-            onPriceDelta={handlePriceDelta}
-          />
-          <Ledger
-            index="03"
-            title="Monthly Budget"
-            note="Amount Adjustable"
-            section="monthly"
-            hasDay={true}
-            hasBudget={true}
-            hasDescription={true}
-            descriptionPlaceholder="Add a note about this month's budget…"
-            initialItems={state.monthly.items}
-            initialBudget={state.monthly.budget}
-            initialDescription={state.monthly.description}
-            onStatus={setStatus}
-            onPriceDelta={handlePriceDelta}
-            onRemainingChange={setMonthlyRemaining}
-          />
-          <Wallets
-            ref={walletsRef}
-            index="04"
-            title="Wallets"
-            section="wallets"
-            initialItems={state.wallets.items}
-            onStatus={setStatus}
-            onTotalChange={setWalletsTotal}
-          />
+          {isAdmin ? (
+            <>
+              <Ledger
+                index="01"
+                title="Quantum Logics Income"
+                section="income"
+                hasDay={false}
+                hasBudget={false}
+                initialItems={state.income.items}
+                initialBudget={0}
+                onStatus={setStatus}
+                onPriceDelta={handlePriceDelta}
+              />
+              <Ledger
+                index="02"
+                title="Poly Learning Initiative"
+                section="poly"
+                hasDay={false}
+                hasBudget={true}
+                initialItems={state.poly.items}
+                initialBudget={state.poly.budget}
+                onStatus={setStatus}
+                onPriceDelta={handlePriceDelta}
+              />
+            </>
+          ) : (
+            <CustomNotepads
+              startIndex={1}
+              onStatus={setStatus}
+              onPriceDelta={handlePriceDelta}
+              onCountChange={setNotepadsCount}
+            />
+          )}
+
+          {tailReady && (
+            <>
+              <Ledger
+                index={monthlyIndex}
+                title="Monthly Budget"
+                note="Amount Adjustable"
+                section="monthly"
+                hasDay={true}
+                hasBudget={true}
+                hasDescription={true}
+                descriptionPlaceholder="Add a note about this month's budget…"
+                initialItems={state.monthly.items}
+                initialBudget={state.monthly.budget}
+                initialDescription={state.monthly.description}
+                onStatus={setStatus}
+                onPriceDelta={handlePriceDelta}
+                onRemainingChange={setMonthlyRemaining}
+              />
+              <Wallets
+                ref={walletsRef}
+                index={walletsIndex}
+                title="Wallets"
+                section="wallets"
+                initialItems={state.wallets.items}
+                onStatus={setStatus}
+                onTotalChange={setWalletsTotal}
+              />
+            </>
+          )}
         </>
       )}
 
       <footer className="app-footer">
         <span>Data is stored in MongoDB via the Express API. Changes save automatically a moment after you stop typing.</span>
-        {state && (
+        {isAdmin && state && (
           <span className="saad-income">
             Saad Income: <strong>{fmt(saadIncome)}</strong>
           </span>

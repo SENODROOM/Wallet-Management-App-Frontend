@@ -38,7 +38,9 @@ export default function Ledger({
   descriptionPlaceholder = "Add a note…",
   initialDescription,
   onPriceDelta,
-  onRemainingChange
+  onRemainingChange,
+  onSave,
+  onRemove
 }) {
   const [rows, setRows] = useState(() =>
     (initialItems || []).map((r) => ({ day: r.day || "", name: r.name || "", price: Number(r.price) || 0 }))
@@ -50,8 +52,8 @@ export default function Ledger({
   const latestPayload = useRef(null);
 
   function save(payload, attempt = 0) {
-    api
-      .putSection(section, payload)
+    const request = onSave ? onSave(payload) : api.putSection(section, payload);
+    request
       .then((res) => {
         if (res.status === 401) {
           window.location.reload();
@@ -96,7 +98,8 @@ export default function Ledger({
       if (timer.current && latestPayload.current) {
         clearTimeout(timer.current);
         timer.current = null;
-        api.putSection(section, latestPayload.current).catch(() => {});
+        const request = onSave ? onSave(latestPayload.current) : api.putSection(section, latestPayload.current);
+        request.catch(() => {});
       }
     }
     window.addEventListener("pagehide", flush);
@@ -157,7 +160,14 @@ export default function Ledger({
             {note && <span className="ledger-note">{note}</span>}
           </h2>
         </div>
-        <span className="ledger-total">{fmt(total)}</span>
+        <div className="ledger-head-right">
+          <span className="ledger-total">{fmt(total)}</span>
+          {onRemove && (
+            <button type="button" className="ledger-remove" aria-label="Remove notepad" onClick={onRemove}>
+              ×
+            </button>
+          )}
+        </div>
       </div>
 
       {hasBudget && (
