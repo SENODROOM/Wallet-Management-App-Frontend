@@ -126,6 +126,7 @@ export default function Notepad({ email, name, onLoggedOut }) {
                 section="monthly"
                 hasDay={true}
                 hasBudget={true}
+                printable={true}
                 hasDescription={true}
                 descriptionPlaceholder="Add a note about this month's budget…"
                 initialItems={state.monthly.items}

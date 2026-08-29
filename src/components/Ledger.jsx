@@ -8,6 +8,12 @@ function todayLabel() {
   return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
 
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (ch) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]
+  ));
+}
+
 function groupByDay(rows) {
   const order = [];
   const map = new Map();
@@ -29,6 +35,7 @@ export default function Ledger({
   section,
   hasDay,
   hasBudget,
+  printable,
   initialItems,
   initialBudget,
   onStatus,
@@ -150,6 +157,75 @@ export default function Ledger({
     setRows((prev) => prev.filter((_, i) => i !== idx));
   }
 
+  function handlePrint() {
+    const now = new Date();
+    const monthYear = `${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+    const groups = hasDay ? groupByDay(rows) : [{ day: "", indices: rows.map((_, i) => i) }];
+
+    const groupsHtml = groups
+      .map(({ day, indices }) => {
+        const dayTotal = indices.reduce((sum, i) => sum + (Number(rows[i].price) || 0), 0);
+        const itemsHtml = indices
+          .map((i) => {
+            const row = rows[i];
+            return `<tr><td>${escapeHtml(row.name || "—")}</td><td class="amt">${escapeHtml(fmt(row.price))}</td></tr>`;
+          })
+          .join("");
+        return `
+          <table>
+            ${day ? `<caption>${escapeHtml(day)} <span class="amt">${escapeHtml(fmt(dayTotal))}</span></caption>` : ""}
+            <tbody>${itemsHtml || `<tr><td colspan="2" class="empty">No entries</td></tr>`}</tbody>
+          </table>`;
+      })
+      .join("");
+
+    const win = window.open("", "_blank", "width=720,height=900");
+    if (!win) return;
+    win.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <title>${escapeHtml(title)} — ${escapeHtml(monthYear)}</title>
+          <meta charset="utf-8" />
+          <style>
+            body { font-family: Georgia, "Iowan Old Style", serif; color: #211f1a; max-width: 640px; margin: 40px auto; padding: 0 20px; }
+            h1 { font-size: 22px; font-weight: 400; margin: 0 0 2px; }
+            .subtitle { color: #6e6a5c; font-size: 13px; margin: 0 0 22px; }
+            .summary { display: flex; justify-content: space-between; border-top: 1px solid #c7bea6; border-bottom: 1px solid #c7bea6; padding: 10px 0; margin-bottom: 18px; font-size: 14px; }
+            .summary div { text-align: center; flex: 1; }
+            .summary strong { display: block; font-size: 16px; margin-top: 2px; }
+            .negative { color: #a24132; }
+            .description { font-style: italic; color: #6e6a5c; font-size: 13px; margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+            caption { text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #6e6a5c; border-bottom: 1px solid #c7bea6; padding-bottom: 6px; margin-bottom: 4px; display: flex; justify-content: space-between; }
+            caption .amt { text-transform: none; letter-spacing: 0; }
+            td { padding: 5px 0; border-bottom: 1px solid #ddd6c4; font-size: 13.5px; }
+            td.amt { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+            td.empty { color: #9a9482; font-style: italic; }
+            .printed-at { color: #9a9482; font-size: 11px; margin-top: 24px; }
+            @media print { body { margin: 0; padding: 16px; } }
+          </style>
+        </head>
+        <body>
+          <h1>${escapeHtml(title)}</h1>
+          <p class="subtitle">${escapeHtml(monthYear)}</p>
+          ${hasBudget ? `
+            <div class="summary">
+              <div>Budget<strong>${escapeHtml(fmt(budget))}</strong></div>
+              <div>Spent<strong>${escapeHtml(fmt(total))}</strong></div>
+              <div>Remaining<strong class="${remaining < 0 ? "negative" : ""}">${escapeHtml(fmt(remaining))}</strong></div>
+            </div>` : ""}
+          ${description ? `<p class="description">${escapeHtml(description)}</p>` : ""}
+          ${groupsHtml}
+          <p class="printed-at">Printed ${escapeHtml(now.toLocaleString())}</p>
+        </body>
+      </html>
+    `);
+    win.document.close();
+    win.focus();
+    win.print();
+  }
+
   return (
     <section className="ledger">
       <div className="ledger-head">
@@ -162,6 +238,11 @@ export default function Ledger({
         </div>
         <div className="ledger-head-right">
           <span className="ledger-total">{fmt(total)}</span>
+          {printable && (
+            <button type="button" className="ledger-print" aria-label="Print" onClick={handlePrint}>
+              Print
+            </button>
+          )}
           {onRemove && (
             <button type="button" className="ledger-remove" aria-label="Remove notepad" onClick={onRemove}>
               ×

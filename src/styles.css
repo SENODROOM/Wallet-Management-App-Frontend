@@ -386,6 +386,22 @@ body {
 }
 .ledger-remove:hover { color: var(--negative); }
 
+.ledger-print {
+  border: 1px solid var(--rule-strong);
+  background: none;
+  color: var(--ink-soft);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+}
+.ledger-print:hover { border-color: var(--accent); color: var(--accent); }
+
 .budget-strip {
   display: flex;
   align-items: center;
