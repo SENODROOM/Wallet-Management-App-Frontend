@@ -2,10 +2,11 @@ import React, { useEffect, useRef, useState } from "react";
 import { api, fmt } from "../api";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 function todayLabel() {
   const d = new Date();
-  return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  return `(${DAYS[d.getDay()]}) ${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
 
 function escapeHtml(value) {
