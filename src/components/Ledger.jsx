@@ -6,7 +6,25 @@ const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", 
 
 function todayLabel() {
   const d = new Date();
-  return `(${DAYS[d.getDay()]}) ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} (${DAYS[d.getDay()]})`;
+}
+
+// Render a stored day label as "16 Aug (Saturday)" — moves an existing
+// weekday to the end, or derives one (assuming the current year) for
+// older labels that were saved without it.
+function displayDay(day) {
+  if (!day) return "Undated";
+  const tagged = day.match(/\(([^)]+)\)/);
+  const bare = day.replace(/\s*\([^)]*\)\s*/g, " ").trim();
+  let weekday = tagged ? tagged[1] : null;
+  if (!weekday) {
+    const m = bare.match(/^(\d{1,2})\s+([A-Za-z]{3})/);
+    const monthIdx = m ? MONTHS.findIndex((mo) => mo.toLowerCase() === m[2].toLowerCase()) : -1;
+    if (monthIdx >= 0) {
+      weekday = DAYS[new Date(new Date().getFullYear(), monthIdx, Number(m[1])).getDay()];
+    }
+  }
+  return weekday ? `${bare} (${weekday})` : bare;
 }
 
 function escapeHtml(value) {
@@ -174,7 +192,7 @@ export default function Ledger({
           .join("");
         return `
           <table>
-            ${day ? `<caption>${escapeHtml(day)} <span class="amt">${escapeHtml(fmt(dayTotal))}</span></caption>` : ""}
+            ${day ? `<caption>${escapeHtml(displayDay(day))} <span class="amt">${escapeHtml(fmt(dayTotal))}</span></caption>` : ""}
             <tbody>${itemsHtml || `<tr><td colspan="2" class="empty">No entries</td></tr>`}</tbody>
           </table>`;
       })
@@ -286,7 +304,7 @@ export default function Ledger({
             return (
               <div className="day-group" key={day || "undated"}>
                 <div className="day-group-head">
-                  <span className="day-label">{day || "Undated"}</span>
+                  <span className="day-label">{displayDay(day)}</span>
                   <span className="day-total">{fmt(dayTotal)}</span>
                 </div>
                 {indices.map((idx) => (
@@ -312,7 +330,7 @@ export default function Ledger({
                   </div>
                 ))}
                 <button type="button" className="add-row day-add" onClick={() => addRowToDay(day)}>
-                  + Add to {day || "Undated"}
+                  + Add to {displayDay(day)}
                 </button>
               </div>
             );
