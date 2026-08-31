@@ -253,6 +253,9 @@ export default function Ledger({
                it. */
             :root { --line-pad: 5px; --head-gap: 16px; --foot-gap: 24px; --squeeze: 1; }
             .blk { break-inside: avoid; page-break-inside: avoid; }
+            /* flow-root keeps the inner margins from collapsing out of the
+               block, so its measured height is the height it will occupy. */
+            .head-block { display: flow-root; }
             .day-head { display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #555; border-bottom: 1px solid #999; padding-bottom: 6px; margin: calc(var(--head-gap) * var(--squeeze)) 0 4px; }
             .line { display: flex; justify-content: space-between; gap: 16px; padding: calc(var(--line-pad) * var(--squeeze)) 0; border-bottom: 1px solid #ccc; font-size: 13.5px; }
             .line .amt { white-space: nowrap; font-variant-numeric: tabular-nums; text-align: right; }
@@ -352,6 +355,14 @@ export default function Ledger({
                 return r || 3.7795;
               })();
 
+              // getBoundingClientRect() stops at the border box, so a day
+              // heading's top margin would go unbudgeted and every sheet would
+              // silently run over the page it was measured for.
+              function blockHeight(el) {
+                var cs = getComputedStyle(el);
+                return el.getBoundingClientRect().height + (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
+              }
+
               function savePrefs() {
                 try { localStorage.setItem(KEY, JSON.stringify(prefs)); } catch (e) {}
               }
@@ -399,13 +410,13 @@ export default function Ledger({
                 addSheet();
                 for (var i = 0; i < blocks.length; i++) {
                   var b = blocks[i];
-                  var bh = b.getBoundingClientRect().height;
+                  var bh = blockHeight(b);
                   var next = blocks[i + 1];
                   // A day heading drags its first entry across with it, so it
                   // never sits stranded on its own at the foot of a sheet.
                   var need = bh;
                   if (b.classList.contains("day-head") && next && next.classList.contains("line")) {
-                    need += next.getBoundingClientRect().height;
+                    need += blockHeight(next);
                   }
                   // The footer stays on the last sheet even when it only fits
                   // inside the bottom safety margin: a page carrying nothing
@@ -419,7 +430,7 @@ export default function Ledger({
                     addSheet();
                     if (head && b.classList.contains("line")) {
                       sheet.appendChild(head.cloneNode(true));
-                      h += sheet.lastChild.getBoundingClientRect().height;
+                      h += blockHeight(sheet.lastChild);
                     }
                   }
                   sheet.appendChild(b);
