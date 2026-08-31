@@ -247,13 +247,17 @@ export default function Ledger({
             .summary strong { display: block; font-size: 16px; margin-top: 2px; }
             .negative { color: #a24132; }
             .description { font-style: italic; color: #555; font-size: 13px; margin: 12px 0 0; }
+            /* Row density lives in these variables so the auto-fit pass can
+               scale the whole vertical rhythm with --squeeze (never the type
+               size) to pull a barely-used final page back onto the one before
+               it. */
+            :root { --line-pad: 5px; --head-gap: 16px; --foot-gap: 24px; --squeeze: 1; }
             .blk { break-inside: avoid; page-break-inside: avoid; }
-            .day-head { display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #555; border-bottom: 1px solid #999; padding-bottom: 6px; margin: 16px 0 4px; }
-            .day-head.cont span:first-child::after { content: " (cont.)"; font-weight: 400; text-transform: none; letter-spacing: 0; }
-            .line { display: flex; justify-content: space-between; gap: 16px; padding: 5px 0; border-bottom: 1px solid #ccc; font-size: 13.5px; }
+            .day-head { display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #555; border-bottom: 1px solid #999; padding-bottom: 6px; margin: calc(var(--head-gap) * var(--squeeze)) 0 4px; }
+            .line { display: flex; justify-content: space-between; gap: 16px; padding: calc(var(--line-pad) * var(--squeeze)) 0; border-bottom: 1px solid #ccc; font-size: 13.5px; }
             .line .amt { white-space: nowrap; font-variant-numeric: tabular-nums; text-align: right; }
             .line.empty { color: #888; font-style: italic; }
-            .printed-at { color: #888; font-size: 11px; margin-top: 24px; }
+            .printed-at { color: #888; font-size: 11px; margin-top: calc(var(--foot-gap) * var(--squeeze)); }
 
             #flow { position: absolute; left: -10000px; top: 0; }
             .sheet { background: #fff; margin: 16px auto; padding: 18px; box-shadow: 0 1px 8px rgba(0, 0, 0, 0.25); }
@@ -275,8 +279,8 @@ export default function Ledger({
               .toolbar, .tb-help, #flow { display: none !important; }
               body { background: #fff; }
               .negative { color: #000; font-weight: 700; }
-              .sheet { width: auto; margin: 0; padding: 0; box-shadow: none; break-after: page; page-break-after: always; }
-              .sheet:last-child { break-after: auto; page-break-after: auto; }
+              .sheet { width: auto; margin: 0; padding: 0; box-shadow: none; }
+              .sheet.brk { break-before: page; page-break-before: always; }
               body.mode-odd .sheet:nth-child(even) { display: none; }
               body.mode-even .sheet:nth-child(odd) { display: none; }
             }
@@ -323,9 +327,10 @@ export default function Ledger({
               var PAPER = { A4: [210, 297], Letter: [215.9, 279.4] };
               var DENSITY = {
                 normal: "",
-                compact: ".line{padding:3px 0;font-size:12.5px}.day-head{margin:11px 0 3px}",
-                tight: ".line{padding:1px 0;font-size:11.5px}.day-head{margin:8px 0 2px;font-size:10px;padding-bottom:4px}h1{font-size:19px}"
+                compact: ":root{--line-pad:3px;--head-gap:11px;--foot-gap:16px}.line{font-size:12.5px}.day-head{margin-bottom:3px}",
+                tight: ":root{--line-pad:1px;--head-gap:8px;--foot-gap:12px}.line{font-size:11.5px}.day-head{margin-bottom:2px;font-size:10px;padding-bottom:4px}h1{font-size:19px}"
               };
+              var SQUEEZE = [1, 0.75, 0.5, 0.3];
               var KEY = "wm_print_prefs";
               var prefs = { paper: "auto", marginMm: 8, density: "normal" };
               try {
@@ -336,6 +341,7 @@ export default function Ledger({
               } catch (e) {}
 
               var mode = "${mode}";
+              var fitSqueeze = 1;
               var srcHTML = document.getElementById("flow").innerHTML;
               var pxPerMm = (function () {
                 var d = document.createElement("div");
@@ -359,18 +365,22 @@ export default function Ledger({
                 return { w: w - prefs.marginMm * 2, h: h - prefs.marginMm * 2 - 9 };
               }
 
-              function applyPageStyle(g) {
+              function applyPageStyle(g, squeeze) {
                 var css = prefs.paper === "auto"
                   ? "@page{margin:" + prefs.marginMm + "mm}"
                   : "@page{size:" + prefs.paper + ";margin:" + prefs.marginMm + "mm}";
                 css += "@media screen{#flow{width:" + g.w + "mm}.sheet{width:" + g.w + "mm}}";
                 css += DENSITY[prefs.density] || "";
+                css += ":root{--squeeze:" + squeeze + "}";
                 document.getElementById("page-style").textContent = css;
               }
 
-              function paginate() {
+              // One pagination pass at a given squeeze. Reports the sheet count
+              // and how full the final sheet came out, so the caller can judge
+              // whether a tighter pass is worth taking.
+              function layout(squeeze) {
                 var g = geom();
-                applyPageStyle(g);
+                applyPageStyle(g, squeeze);
 
                 var flow = document.getElementById("flow");
                 var pages = document.getElementById("pages");
@@ -390,7 +400,17 @@ export default function Ledger({
                 for (var i = 0; i < blocks.length; i++) {
                   var b = blocks[i];
                   var bh = b.getBoundingClientRect().height;
-                  if (h > 0 && h + bh > usable) {
+                  var next = blocks[i + 1];
+                  // A day heading drags its first entry across with it, so it
+                  // never sits stranded on its own at the foot of a sheet.
+                  var need = bh;
+                  if (b.classList.contains("day-head") && next && next.classList.contains("line")) {
+                    need += next.getBoundingClientRect().height;
+                  }
+                  // The footer stays on the last sheet even when it only fits
+                  // inside the bottom safety margin: a page carrying nothing
+                  // but "Printed ..." is precisely the blank sheet to avoid.
+                  if (h > 0 && h + need > usable && !b.classList.contains("printed-at")) {
                     var head = null;
                     for (var j = i - 1; j >= 0; j--) {
                       if (blocks[j].classList.contains("head-block")) break;
@@ -398,17 +418,45 @@ export default function Ledger({
                     }
                     addSheet();
                     if (head && b.classList.contains("line")) {
-                      var c = head.cloneNode(true);
-                      c.classList.add("cont");
-                      sheet.appendChild(c);
-                      h += c.getBoundingClientRect().height;
+                      sheet.appendChild(head.cloneNode(true));
+                      h += sheet.lastChild.getBoundingClientRect().height;
                     }
                   }
                   sheet.appendChild(b);
                   h += bh;
                 }
+                return { sheets: pages.children.length, fill: usable > 0 ? h / usable : 1 };
+              }
+
+              // A final sheet holding a line or two is mostly blank paper, so
+              // re-run tighter and keep the first pass that actually drops it.
+              function paginate() {
+                var r = layout(1);
+                fitSqueeze = 1;
+                if (r.sheets > 1 && r.fill < 0.35) {
+                  for (var s = 1; s < SQUEEZE.length; s++) {
+                    var t = layout(SQUEEZE[s]);
+                    if (t.sheets < r.sheets) { fitSqueeze = SQUEEZE[s]; break; }
+                    if (s === SQUEEZE.length - 1) layout(1);
+                  }
+                }
                 document.body.className = "mode-" + mode;
+                applyBreaks();
                 refreshHelp();
+              }
+
+              // Breaks go before each sheet that will actually print, so a
+              // hidden sheet at the tail of an odd/even pass cannot push a
+              // trailing blank page out of the printer.
+              function applyBreaks() {
+                var sheets = document.getElementById("pages").children;
+                var first = true;
+                for (var i = 0; i < sheets.length; i++) {
+                  var hidden = (mode === "odd" && i % 2 === 1) || (mode === "even" && i % 2 === 0);
+                  if (!hidden && !first) sheets[i].classList.add("brk");
+                  else sheets[i].classList.remove("brk");
+                  if (!hidden) first = false;
+                }
               }
 
               function sheetCount() { return document.getElementById("pages").children.length; }
@@ -434,6 +482,7 @@ export default function Ledger({
                     " (the " + mode + " pages of " + total + "). When it finishes, flip the stack, switch <b>Pages</b> to <b>" +
                     other + " only</b>, and print again.";
                 }
+                if (fitSqueeze < 1) msg += " Spacing was tightened to save a near-empty last page.";
                 document.getElementById("tb-help").innerHTML = msg + fix;
                 document.getElementById("tb-print").disabled = n === 0;
               }
