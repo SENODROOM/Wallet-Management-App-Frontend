@@ -27,6 +27,14 @@ function displayDay(day) {
   return weekday ? `${bare} (${weekday})` : bare;
 }
 
+// Canonical stored form of a day key, so labels saved in older formats
+// ("(Monday) 31 Aug", "31 Aug") collapse into a single group.
+function canonicalDay(day) {
+  if (!day) return "";
+  const label = displayDay(day);
+  return label === "Undated" ? "" : label;
+}
+
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (ch) => (
     { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]
@@ -69,7 +77,7 @@ export default function Ledger({
   onRemove
 }) {
   const [rows, setRows] = useState(() =>
-    (initialItems || []).map((r) => ({ day: r.day || "", name: r.name || "", price: Number(r.price) || 0 }))
+    (initialItems || []).map((r) => ({ day: canonicalDay(r.day || ""), name: r.name || "", price: Number(r.price) || 0 }))
   );
   const [budget, setBudget] = useState(Number(initialBudget) || 0);
   const [description, setDescription] = useState(initialDescription || "");
