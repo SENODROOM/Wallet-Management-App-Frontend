@@ -185,18 +185,15 @@ export default function Ledger({
     setRows((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  // mode: "all" prints every page; "odd" / "even" print only those sheets so the
-  // 107w (no duplexer) can do manual two-sided — run odd, flip the stack, run even.
+  // Opens a print-setup window holding the report plus a screen-only toolbar:
+  // paper, margin and row density are live controls (persisted to localStorage)
+  // rather than baked-in numbers, and "Pages" does manual two-sided by emitting
+  // only the odd or only the even sheets for printers with no duplexer.
+  // `mode` ("all" | "odd" | "even") just seeds the Pages control.
   function handlePrint(mode = "all") {
     const now = new Date();
     const monthYear = `${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
     const groups = hasDay ? groupByDay(rows) : [{ day: "", indices: rows.map((_, i) => i) }];
-
-    // Slim edge — inside the 107w's hardware-unprintable border so the driver
-    // doesn't reject the job the way it does with the dialog's "None" preset.
-    const pageMarginMm = 8;
-    const contentWidthMm = 210 - pageMarginMm * 2;
-    const usableHeightMm = 297 - pageMarginMm * 2 - 9;
 
     const headBlock = `
       <div class="blk head-block">
@@ -231,12 +228,7 @@ export default function Ledger({
 
     const footBlock = `<div class="blk printed-at">Printed ${escapeHtml(now.toLocaleString())}</div>`;
 
-    const hint =
-      mode === "all"
-        ? ""
-        : `<div class="hint">Two-sided run — printing the <b>${mode.toUpperCase()}</b> sheets. When it finishes, flip the paper and press <b>${mode === "odd" ? "Even" : "Odd"}</b>. In the print dialog turn <b>Headers &amp; footers</b> off and leave <b>Margins</b> on <b>Default</b> (not None — the page already uses a slim ${pageMarginMm} mm edge).</div>`;
-
-    const win = window.open("", "_blank", "width=820,height=1000");
+    const win = window.open("", "_blank", "width=900,height=1040");
     if (!win) return;
     win.document.write(`
       <!doctype html>
@@ -247,37 +239,79 @@ export default function Ledger({
           <style>
             * { box-sizing: border-box; }
             html, body { margin: 0; padding: 0; }
-            body { font-family: Georgia, "Iowan Old Style", serif; color: #211f1a; background: #d8d3c7; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body { font-family: Georgia, "Iowan Old Style", serif; color: #1a1a1a; background: #d8d3c7; }
             h1 { font-size: 22px; font-weight: 400; margin: 0 0 2px; }
-            .subtitle { color: #6e6a5c; font-size: 13px; margin: 0 0 16px; }
-            .summary { display: flex; justify-content: space-between; border-top: 1px solid #c7bea6; border-bottom: 1px solid #c7bea6; padding: 10px 0; font-size: 14px; }
+            .subtitle { color: #555; font-size: 13px; margin: 0 0 16px; }
+            .summary { display: flex; justify-content: space-between; border-top: 1px solid #999; border-bottom: 1px solid #999; padding: 10px 0; font-size: 14px; }
             .summary div { text-align: center; flex: 1; }
             .summary strong { display: block; font-size: 16px; margin-top: 2px; }
             .negative { color: #a24132; }
-            .description { font-style: italic; color: #6e6a5c; font-size: 13px; margin: 12px 0 0; }
+            .description { font-style: italic; color: #555; font-size: 13px; margin: 12px 0 0; }
             .blk { break-inside: avoid; page-break-inside: avoid; }
-            .day-head { display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #6e6a5c; border-bottom: 1px solid #c7bea6; padding-bottom: 6px; margin: 16px 0 4px; }
+            .day-head { display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #555; border-bottom: 1px solid #999; padding-bottom: 6px; margin: 16px 0 4px; }
             .day-head.cont span:first-child::after { content: " (cont.)"; font-weight: 400; text-transform: none; letter-spacing: 0; }
-            .line { display: flex; justify-content: space-between; gap: 16px; padding: 5px 0; border-bottom: 1px solid #ddd6c4; font-size: 13.5px; }
+            .line { display: flex; justify-content: space-between; gap: 16px; padding: 5px 0; border-bottom: 1px solid #ccc; font-size: 13.5px; }
             .line .amt { white-space: nowrap; font-variant-numeric: tabular-nums; text-align: right; }
-            .line.empty { color: #9a9482; font-style: italic; }
-            .printed-at { color: #9a9482; font-size: 11px; margin-top: 24px; }
-            .hint { font-family: "Segoe UI", system-ui, sans-serif; font-size: 12px; line-height: 1.45; background: #fff6df; border: 1px solid #e7c98a; color: #5b4a24; padding: 8px 12px; margin: 16px auto 0; max-width: ${contentWidthMm}mm; }
-            #flow { position: absolute; left: -10000px; top: 0; width: ${contentWidthMm}mm; }
-            .sheet { width: ${contentWidthMm}mm; background: #fff; margin: 16px auto; padding: 16px 18px; box-shadow: 0 1px 8px rgba(0, 0, 0, 0.25); }
-            @page { size: A4; margin: ${pageMarginMm}mm; }
+            .line.empty { color: #888; font-style: italic; }
+            .printed-at { color: #888; font-size: 11px; margin-top: 24px; }
+
+            #flow { position: absolute; left: -10000px; top: 0; }
+            .sheet { background: #fff; margin: 16px auto; padding: 18px; box-shadow: 0 1px 8px rgba(0, 0, 0, 0.25); }
+
+            .toolbar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 14px;
+              font-family: "Segoe UI", system-ui, sans-serif; font-size: 13px;
+              background: #f4f1ea; border-bottom: 1px solid #c7bea6; padding: 10px 16px; }
+            .toolbar b.tb-brand { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #6e6a5c; }
+            .toolbar label { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+            .toolbar select, .toolbar input { font: inherit; padding: 3px 6px; border: 1px solid #b7ae95; background: #fff; border-radius: 3px; }
+            .toolbar input[type="number"] { width: 58px; }
+            .toolbar .spacer { flex: 1; }
+            .toolbar button { font: inherit; font-weight: 600; padding: 6px 18px; border: 1px solid #3c6e47; background: #3c6e47; color: #fff; border-radius: 3px; cursor: pointer; }
+            .toolbar button:disabled { background: #b9b4a6; border-color: #b9b4a6; cursor: not-allowed; }
+            .tb-help { font-family: "Segoe UI", system-ui, sans-serif; font-size: 12.5px; line-height: 1.55;
+              color: #5b4a24; background: #fff6df; border-bottom: 1px solid #e7c98a; padding: 8px 16px; }
+
             @media print {
+              .toolbar, .tb-help, #flow { display: none !important; }
               body { background: #fff; }
-              .hint { display: none; }
+              .negative { color: #000; font-weight: 700; }
               .sheet { width: auto; margin: 0; padding: 0; box-shadow: none; break-after: page; page-break-after: always; }
               .sheet:last-child { break-after: auto; page-break-after: auto; }
               body.mode-odd .sheet:nth-child(even) { display: none; }
               body.mode-even .sheet:nth-child(odd) { display: none; }
             }
           </style>
+          <style id="page-style"></style>
         </head>
         <body>
-          ${hint}
+          <div class="toolbar">
+            <b class="tb-brand">Print setup</b>
+            <label>Paper
+              <select id="tb-paper">
+                <option value="auto">Printer default</option>
+                <option value="A4">A4</option>
+                <option value="Letter">Letter</option>
+              </select>
+            </label>
+            <label>Margin <input id="tb-margin" type="number" min="0" max="25" step="1" /> mm</label>
+            <label>Rows
+              <select id="tb-density">
+                <option value="normal">Normal</option>
+                <option value="compact">Compact</option>
+                <option value="tight">Tight</option>
+              </select>
+            </label>
+            <label>Pages
+              <select id="tb-mode">
+                <option value="all">All</option>
+                <option value="odd">Odd only</option>
+                <option value="even">Even only</option>
+              </select>
+            </label>
+            <span class="spacer"></span>
+            <button id="tb-print" type="button">Print…</button>
+          </div>
+          <div class="tb-help" id="tb-help"></div>
           <div id="pages"></div>
           <div id="flow">
             ${headBlock}
@@ -286,17 +320,64 @@ export default function Ledger({
           </div>
           <script>
             (function () {
+              var PAPER = { A4: [210, 297], Letter: [215.9, 279.4] };
+              var DENSITY = {
+                normal: "",
+                compact: ".line{padding:3px 0;font-size:12.5px}.day-head{margin:11px 0 3px}",
+                tight: ".line{padding:1px 0;font-size:11.5px}.day-head{margin:8px 0 2px;font-size:10px;padding-bottom:4px}h1{font-size:19px}"
+              };
+              var KEY = "wm_print_prefs";
+              var prefs = { paper: "auto", marginMm: 8, density: "normal" };
+              try {
+                var saved = JSON.parse(localStorage.getItem(KEY) || "{}");
+                if (saved.paper) prefs.paper = saved.paper;
+                if (typeof saved.marginMm === "number") prefs.marginMm = saved.marginMm;
+                if (saved.density) prefs.density = saved.density;
+              } catch (e) {}
+
               var mode = "${mode}";
-              function run() {
-                var probe = document.createElement("div");
-                probe.style.cssText = "position:absolute;visibility:hidden;height:100mm";
-                document.body.appendChild(probe);
-                var pxPerMm = probe.offsetHeight / 100;
-                document.body.removeChild(probe);
-                var usable = pxPerMm * ${usableHeightMm};
+              var srcHTML = document.getElementById("flow").innerHTML;
+              var pxPerMm = (function () {
+                var d = document.createElement("div");
+                d.style.cssText = "position:absolute;visibility:hidden;height:100mm";
+                document.body.appendChild(d);
+                var r = d.offsetHeight / 100;
+                document.body.removeChild(d);
+                return r || 3.7795;
+              })();
+
+              function savePrefs() {
+                try { localStorage.setItem(KEY, JSON.stringify(prefs)); } catch (e) {}
+              }
+
+              // "Printer default" has to survive either tray, so pack to the
+              // narrower width and the shorter height of A4 / Letter.
+              function geom() {
+                var w, h;
+                if (prefs.paper === "auto") { w = 210; h = 279.4; }
+                else { var d = PAPER[prefs.paper] || PAPER.A4; w = d[0]; h = d[1]; }
+                return { w: w - prefs.marginMm * 2, h: h - prefs.marginMm * 2 - 9 };
+              }
+
+              function applyPageStyle(g) {
+                var css = prefs.paper === "auto"
+                  ? "@page{margin:" + prefs.marginMm + "mm}"
+                  : "@page{size:" + prefs.paper + ";margin:" + prefs.marginMm + "mm}";
+                css += "@media screen{#flow{width:" + g.w + "mm}.sheet{width:" + g.w + "mm}}";
+                css += DENSITY[prefs.density] || "";
+                document.getElementById("page-style").textContent = css;
+              }
+
+              function paginate() {
+                var g = geom();
+                applyPageStyle(g);
 
                 var flow = document.getElementById("flow");
                 var pages = document.getElementById("pages");
+                flow.innerHTML = srcHTML;
+                pages.innerHTML = "";
+
+                var usable = pxPerMm * g.h;
                 var blocks = Array.prototype.slice.call(flow.children);
                 var sheet = null, h = 0;
                 function addSheet() {
@@ -326,17 +407,68 @@ export default function Ledger({
                   sheet.appendChild(b);
                   h += bh;
                 }
-                flow.parentNode.removeChild(flow);
-
-                if (mode === "even" && pages.children.length < 2) {
-                  alert("Only one page — nothing prints on the even run.");
-                  return;
-                }
                 document.body.className = "mode-" + mode;
-                window.focus();
-                window.print();
+                refreshHelp();
               }
-              setTimeout(run, 40);
+
+              function sheetCount() { return document.getElementById("pages").children.length; }
+              function willPrint() {
+                var t = sheetCount();
+                if (mode === "odd") return Math.ceil(t / 2);
+                if (mode === "even") return Math.floor(t / 2);
+                return t;
+              }
+
+              function refreshHelp() {
+                var total = sheetCount();
+                var n = willPrint();
+                var fix = " If the printer reports <b>Error</b>: set the dialog's <b>Margins</b> to <b>Default</b> (never <b>None</b> — this printer cannot print edge to edge), turn <b>Headers &amp; footers</b> off, and make <b>Paper</b> above match what is actually in the tray. If it still fails, print to <b>Microsoft Print to PDF</b> and print that file from a PDF viewer.";
+                var msg;
+                if (mode === "all") {
+                  msg = "Report is <b>" + total + "</b> page" + (total === 1 ? "" : "s") + ".";
+                } else if (n === 0) {
+                  msg = "Nothing to print on the <b>" + mode + "</b> pass — the report is only " + total + " page.";
+                } else {
+                  var other = mode === "odd" ? "Even" : "Odd";
+                  msg = "Manual two-sided: this pass prints <b>" + n + "</b> sheet" + (n === 1 ? "" : "s") +
+                    " (the " + mode + " pages of " + total + "). When it finishes, flip the stack, switch <b>Pages</b> to <b>" +
+                    other + " only</b>, and print again.";
+                }
+                document.getElementById("tb-help").innerHTML = msg + fix;
+                document.getElementById("tb-print").disabled = n === 0;
+              }
+
+              var elPaper = document.getElementById("tb-paper");
+              var elMargin = document.getElementById("tb-margin");
+              var elDensity = document.getElementById("tb-density");
+              var elMode = document.getElementById("tb-mode");
+              elPaper.value = prefs.paper;
+              elMargin.value = prefs.marginMm;
+              elDensity.value = prefs.density;
+              elMode.value = mode;
+
+              elPaper.onchange = function () { prefs.paper = elPaper.value; savePrefs(); paginate(); };
+              elDensity.onchange = function () { prefs.density = elDensity.value; savePrefs(); paginate(); };
+              elMode.onchange = function () { mode = elMode.value; paginate(); };
+              elMargin.onchange = function () {
+                var v = parseInt(elMargin.value, 10);
+                if (isNaN(v)) v = 8;
+                v = Math.max(0, Math.min(25, v));
+                prefs.marginMm = v;
+                elMargin.value = v;
+                savePrefs();
+                paginate();
+              };
+              document.getElementById("tb-print").onclick = function () {
+                if (willPrint() === 0) return;
+                window.print();
+              };
+
+              paginate();
+              setTimeout(function () {
+                window.focus();
+                if (willPrint() > 0) window.print();
+              }, 500);
             })();
           </script>
         </body>
