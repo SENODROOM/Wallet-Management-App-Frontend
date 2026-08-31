@@ -192,6 +192,12 @@ export default function Ledger({
     const monthYear = `${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
     const groups = hasDay ? groupByDay(rows) : [{ day: "", indices: rows.map((_, i) => i) }];
 
+    // Slim edge — inside the 107w's hardware-unprintable border so the driver
+    // doesn't reject the job the way it does with the dialog's "None" preset.
+    const pageMarginMm = 8;
+    const contentWidthMm = 210 - pageMarginMm * 2;
+    const usableHeightMm = 297 - pageMarginMm * 2 - 9;
+
     const headBlock = `
       <div class="blk head-block">
         <h1>${escapeHtml(title)}</h1>
@@ -228,7 +234,7 @@ export default function Ledger({
     const hint =
       mode === "all"
         ? ""
-        : `<div class="hint">Two-sided run — printing the <b>${mode.toUpperCase()}</b> sheets. When it finishes, flip the paper and press <b>${mode === "odd" ? "Even" : "Odd"}</b>. For alignment, set the print dialog to Margins: Default and Headers &amp; footers: off.</div>`;
+        : `<div class="hint">Two-sided run — printing the <b>${mode.toUpperCase()}</b> sheets. When it finishes, flip the paper and press <b>${mode === "odd" ? "Even" : "Odd"}</b>. In the print dialog turn <b>Headers &amp; footers</b> off and leave <b>Margins</b> on <b>Default</b> (not None — the page already uses a slim ${pageMarginMm} mm edge).</div>`;
 
     const win = window.open("", "_blank", "width=820,height=1000");
     if (!win) return;
@@ -256,10 +262,10 @@ export default function Ledger({
             .line .amt { white-space: nowrap; font-variant-numeric: tabular-nums; text-align: right; }
             .line.empty { color: #9a9482; font-style: italic; }
             .printed-at { color: #9a9482; font-size: 11px; margin-top: 24px; }
-            .hint { font-family: "Segoe UI", system-ui, sans-serif; font-size: 12px; line-height: 1.45; background: #fff6df; border: 1px solid #e7c98a; color: #5b4a24; padding: 8px 12px; margin: 16px auto 0; max-width: 186mm; }
-            #flow { position: absolute; left: -10000px; top: 0; width: 186mm; }
-            .sheet { width: 186mm; background: #fff; margin: 16px auto; padding: 16px 18px; box-shadow: 0 1px 8px rgba(0, 0, 0, 0.25); }
-            @page { size: A4; margin: 12mm; }
+            .hint { font-family: "Segoe UI", system-ui, sans-serif; font-size: 12px; line-height: 1.45; background: #fff6df; border: 1px solid #e7c98a; color: #5b4a24; padding: 8px 12px; margin: 16px auto 0; max-width: ${contentWidthMm}mm; }
+            #flow { position: absolute; left: -10000px; top: 0; width: ${contentWidthMm}mm; }
+            .sheet { width: ${contentWidthMm}mm; background: #fff; margin: 16px auto; padding: 16px 18px; box-shadow: 0 1px 8px rgba(0, 0, 0, 0.25); }
+            @page { size: A4; margin: ${pageMarginMm}mm; }
             @media print {
               body { background: #fff; }
               .hint { display: none; }
@@ -287,7 +293,7 @@ export default function Ledger({
                 document.body.appendChild(probe);
                 var pxPerMm = probe.offsetHeight / 100;
                 document.body.removeChild(probe);
-                var usable = pxPerMm * 261;
+                var usable = pxPerMm * ${usableHeightMm};
 
                 var flow = document.getElementById("flow");
                 var pages = document.getElementById("pages");
