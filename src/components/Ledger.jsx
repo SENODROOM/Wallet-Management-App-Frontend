@@ -230,7 +230,12 @@ export default function Ledger({
             td.amt { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
             td.empty { color: #9a9482; font-style: italic; }
             .printed-at { color: #9a9482; font-size: 11px; margin-top: 24px; }
-            @media print { body { margin: 0; padding: 16px; } }
+            @page { size: A4; margin: 12mm; }
+            @media print {
+              body { max-width: none; width: 100%; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              table { page-break-inside: auto; }
+              tr { page-break-inside: avoid; }
+            }
           </style>
         </head>
         <body>
