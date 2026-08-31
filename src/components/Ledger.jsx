@@ -81,6 +81,7 @@ export default function Ledger({
   );
   const [budget, setBudget] = useState(Number(initialBudget) || 0);
   const [description, setDescription] = useState(initialDescription || "");
+  const [duplex, setDuplex] = useState(false);
   const mounted = useRef(false);
   const timer = useRef(null);
   const latestPayload = useRef(null);
@@ -184,29 +185,52 @@ export default function Ledger({
     setRows((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  function handlePrint() {
+  // mode: "all" prints every page; "odd" / "even" print only those sheets so the
+  // 107w (no duplexer) can do manual two-sided — run odd, flip the stack, run even.
+  function handlePrint(mode = "all") {
     const now = new Date();
     const monthYear = `${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
     const groups = hasDay ? groupByDay(rows) : [{ day: "", indices: rows.map((_, i) => i) }];
 
-    const groupsHtml = groups
+    const headBlock = `
+      <div class="blk head-block">
+        <h1>${escapeHtml(title)}</h1>
+        <p class="subtitle">${escapeHtml(monthYear)}</p>
+        ${hasBudget ? `
+          <div class="summary">
+            <div>Budget<strong>${escapeHtml(fmt(budget))}</strong></div>
+            <div>Spent<strong>${escapeHtml(fmt(total))}</strong></div>
+            <div>Remaining<strong class="${remaining < 0 ? "negative" : ""}">${escapeHtml(fmt(remaining))}</strong></div>
+          </div>` : ""}
+        ${description ? `<p class="description">${escapeHtml(description)}</p>` : ""}
+      </div>`;
+
+    const groupBlocks = groups
       .map(({ day, indices }) => {
         const dayTotal = indices.reduce((sum, i) => sum + (Number(rows[i].price) || 0), 0);
-        const itemsHtml = indices
-          .map((i) => {
-            const row = rows[i];
-            return `<tr><td>${escapeHtml(row.name || "—")}</td><td class="amt">${escapeHtml(fmt(row.price))}</td></tr>`;
-          })
-          .join("");
-        return `
-          <table>
-            ${day ? `<caption>${escapeHtml(displayDay(day))} <span class="amt">${escapeHtml(fmt(dayTotal))}</span></caption>` : ""}
-            <tbody>${itemsHtml || `<tr><td colspan="2" class="empty">No entries</td></tr>`}</tbody>
-          </table>`;
+        const head = day
+          ? `<div class="blk day-head"><span>${escapeHtml(displayDay(day))}</span><span class="amt">${escapeHtml(fmt(dayTotal))}</span></div>`
+          : "";
+        const lines = indices.length
+          ? indices
+              .map((i) => {
+                const row = rows[i];
+                return `<div class="blk line"><span class="nm">${escapeHtml(row.name || "—")}</span><span class="amt">${escapeHtml(fmt(row.price))}</span></div>`;
+              })
+              .join("")
+          : `<div class="blk line empty">No entries</div>`;
+        return head + lines;
       })
       .join("");
 
-    const win = window.open("", "_blank", "width=720,height=900");
+    const footBlock = `<div class="blk printed-at">Printed ${escapeHtml(now.toLocaleString())}</div>`;
+
+    const hint =
+      mode === "all"
+        ? ""
+        : `<div class="hint">Two-sided run — printing the <b>${mode.toUpperCase()}</b> sheets. When it finishes, flip the paper and press <b>${mode === "odd" ? "Even" : "Odd"}</b>. For alignment, set the print dialog to Margins: Default and Headers &amp; footers: off.</div>`;
+
+    const win = window.open("", "_blank", "width=820,height=1000");
     if (!win) return;
     win.document.write(`
       <!doctype html>
@@ -215,47 +239,104 @@ export default function Ledger({
           <title>${escapeHtml(title)} — ${escapeHtml(monthYear)}</title>
           <meta charset="utf-8" />
           <style>
-            body { font-family: Georgia, "Iowan Old Style", serif; color: #211f1a; max-width: 640px; margin: 40px auto; padding: 0 20px; }
+            * { box-sizing: border-box; }
+            html, body { margin: 0; padding: 0; }
+            body { font-family: Georgia, "Iowan Old Style", serif; color: #211f1a; background: #d8d3c7; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             h1 { font-size: 22px; font-weight: 400; margin: 0 0 2px; }
-            .subtitle { color: #6e6a5c; font-size: 13px; margin: 0 0 22px; }
-            .summary { display: flex; justify-content: space-between; border-top: 1px solid #c7bea6; border-bottom: 1px solid #c7bea6; padding: 10px 0; margin-bottom: 18px; font-size: 14px; }
+            .subtitle { color: #6e6a5c; font-size: 13px; margin: 0 0 16px; }
+            .summary { display: flex; justify-content: space-between; border-top: 1px solid #c7bea6; border-bottom: 1px solid #c7bea6; padding: 10px 0; font-size: 14px; }
             .summary div { text-align: center; flex: 1; }
             .summary strong { display: block; font-size: 16px; margin-top: 2px; }
             .negative { color: #a24132; }
-            .description { font-style: italic; color: #6e6a5c; font-size: 13px; margin-bottom: 20px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-            caption { text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #6e6a5c; border-bottom: 1px solid #c7bea6; padding-bottom: 6px; margin-bottom: 4px; display: flex; justify-content: space-between; }
-            caption .amt { text-transform: none; letter-spacing: 0; }
-            td { padding: 5px 0; border-bottom: 1px solid #ddd6c4; font-size: 13.5px; }
-            td.amt { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-            td.empty { color: #9a9482; font-style: italic; }
+            .description { font-style: italic; color: #6e6a5c; font-size: 13px; margin: 12px 0 0; }
+            .blk { break-inside: avoid; page-break-inside: avoid; }
+            .day-head { display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #6e6a5c; border-bottom: 1px solid #c7bea6; padding-bottom: 6px; margin: 16px 0 4px; }
+            .day-head.cont span:first-child::after { content: " (cont.)"; font-weight: 400; text-transform: none; letter-spacing: 0; }
+            .line { display: flex; justify-content: space-between; gap: 16px; padding: 5px 0; border-bottom: 1px solid #ddd6c4; font-size: 13.5px; }
+            .line .amt { white-space: nowrap; font-variant-numeric: tabular-nums; text-align: right; }
+            .line.empty { color: #9a9482; font-style: italic; }
             .printed-at { color: #9a9482; font-size: 11px; margin-top: 24px; }
+            .hint { font-family: "Segoe UI", system-ui, sans-serif; font-size: 12px; line-height: 1.45; background: #fff6df; border: 1px solid #e7c98a; color: #5b4a24; padding: 8px 12px; margin: 16px auto 0; max-width: 186mm; }
+            #flow { position: absolute; left: -10000px; top: 0; width: 186mm; }
+            .sheet { width: 186mm; background: #fff; margin: 16px auto; padding: 16px 18px; box-shadow: 0 1px 8px rgba(0, 0, 0, 0.25); }
             @page { size: A4; margin: 12mm; }
             @media print {
-              body { max-width: none; width: 100%; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-              table { page-break-inside: auto; }
-              tr { page-break-inside: avoid; }
+              body { background: #fff; }
+              .hint { display: none; }
+              .sheet { width: auto; margin: 0; padding: 0; box-shadow: none; break-after: page; page-break-after: always; }
+              .sheet:last-child { break-after: auto; page-break-after: auto; }
+              body.mode-odd .sheet:nth-child(even) { display: none; }
+              body.mode-even .sheet:nth-child(odd) { display: none; }
             }
           </style>
         </head>
         <body>
-          <h1>${escapeHtml(title)}</h1>
-          <p class="subtitle">${escapeHtml(monthYear)}</p>
-          ${hasBudget ? `
-            <div class="summary">
-              <div>Budget<strong>${escapeHtml(fmt(budget))}</strong></div>
-              <div>Spent<strong>${escapeHtml(fmt(total))}</strong></div>
-              <div>Remaining<strong class="${remaining < 0 ? "negative" : ""}">${escapeHtml(fmt(remaining))}</strong></div>
-            </div>` : ""}
-          ${description ? `<p class="description">${escapeHtml(description)}</p>` : ""}
-          ${groupsHtml}
-          <p class="printed-at">Printed ${escapeHtml(now.toLocaleString())}</p>
+          ${hint}
+          <div id="pages"></div>
+          <div id="flow">
+            ${headBlock}
+            ${groupBlocks}
+            ${footBlock}
+          </div>
+          <script>
+            (function () {
+              var mode = "${mode}";
+              function run() {
+                var probe = document.createElement("div");
+                probe.style.cssText = "position:absolute;visibility:hidden;height:100mm";
+                document.body.appendChild(probe);
+                var pxPerMm = probe.offsetHeight / 100;
+                document.body.removeChild(probe);
+                var usable = pxPerMm * 261;
+
+                var flow = document.getElementById("flow");
+                var pages = document.getElementById("pages");
+                var blocks = Array.prototype.slice.call(flow.children);
+                var sheet = null, h = 0;
+                function addSheet() {
+                  sheet = document.createElement("div");
+                  sheet.className = "sheet";
+                  pages.appendChild(sheet);
+                  h = 0;
+                }
+                addSheet();
+                for (var i = 0; i < blocks.length; i++) {
+                  var b = blocks[i];
+                  var bh = b.getBoundingClientRect().height;
+                  if (h > 0 && h + bh > usable) {
+                    var head = null;
+                    for (var j = i - 1; j >= 0; j--) {
+                      if (blocks[j].classList.contains("head-block")) break;
+                      if (blocks[j].classList.contains("day-head")) { head = blocks[j]; break; }
+                    }
+                    addSheet();
+                    if (head && b.classList.contains("line")) {
+                      var c = head.cloneNode(true);
+                      c.classList.add("cont");
+                      sheet.appendChild(c);
+                      h += c.getBoundingClientRect().height;
+                    }
+                  }
+                  sheet.appendChild(b);
+                  h += bh;
+                }
+                flow.parentNode.removeChild(flow);
+
+                if (mode === "even" && pages.children.length < 2) {
+                  alert("Only one page — nothing prints on the even run.");
+                  return;
+                }
+                document.body.className = "mode-" + mode;
+                window.focus();
+                window.print();
+              }
+              setTimeout(run, 40);
+            })();
+          </script>
         </body>
       </html>
     `);
     win.document.close();
-    win.focus();
-    win.print();
   }
 
   return (
@@ -271,9 +352,41 @@ export default function Ledger({
         <div className="ledger-head-right">
           <span className="ledger-total">{fmt(total)}</span>
           {printable && (
-            <button type="button" className="ledger-print" aria-label="Print" onClick={handlePrint}>
-              Print
-            </button>
+            <div className="print-controls">
+              <label
+                className="duplex-toggle"
+                title="Two-sided (manual): print the odd sheets, flip the paper, then print the even sheets"
+              >
+                <input
+                  type="checkbox"
+                  checked={duplex}
+                  onChange={(e) => setDuplex(e.target.checked)}
+                />
+                <span className="duplex-track">
+                  <span className="duplex-thumb" />
+                </span>
+                <span className="duplex-label">2-sided</span>
+              </label>
+              {duplex ? (
+                <>
+                  <button type="button" className="ledger-print" onClick={() => handlePrint("odd")}>
+                    Odd
+                  </button>
+                  <button type="button" className="ledger-print" onClick={() => handlePrint("even")}>
+                    Even
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="ledger-print"
+                  aria-label="Print"
+                  onClick={() => handlePrint("all")}
+                >
+                  Print
+                </button>
+              )}
+            </div>
           )}
           {onRemove && (
             <button type="button" className="ledger-remove" aria-label="Remove notepad" onClick={onRemove}>
