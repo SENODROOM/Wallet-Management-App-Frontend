@@ -37,10 +37,13 @@ export default function MonthlyBudget({ index, initial, onStatus, onPriceDelta, 
   // list — and, more importantly, instead of autosaving it back afterwards.
   const [ready, setReady] = useState(initial.period === currentPeriod());
   const [ledgerKey, setLedgerKey] = useState(0);
+  const [syncError, setSyncError] = useState("");
   const periodRef = useRef(period);
+  const keyRef = useRef(ledgerKey);
   const chipsRef = useRef(null);
 
   periodRef.current = period;
+  keyRef.current = ledgerKey;
 
   async function sync() {
     try {
@@ -49,8 +52,9 @@ export default function MonthlyBudget({ index, initial, onStatus, onPriceDelta, 
         window.location.reload();
         return;
       }
-      if (!res.ok) throw new Error("rollover failed");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+      setSyncError("");
       setPeriod(data.period);
       setLive(data.monthly);
       setHistory(data.history || []);
@@ -61,8 +65,11 @@ export default function MonthlyBudget({ index, initial, onStatus, onPriceDelta, 
         setViewing(null);
       }
     } catch (err) {
-      // Offline or the server is down: stay in the month the section already
-      // carries rather than leaving the ledger stuck behind a spinner.
+      // Offline, or the API does not have the route yet. Stay in the month the
+      // section already carries rather than leaving the ledger stuck behind a
+      // spinner — but say so, because the alternative is a budget that silently
+      // never rolls over.
+      setSyncError(err.message || "unreachable");
     } finally {
       setReady(true);
     }
@@ -85,11 +92,15 @@ export default function MonthlyBudget({ index, initial, onStatus, onPriceDelta, 
     chipsRef.current.scrollLeft = chipsRef.current.scrollWidth;
   }, [history.length, viewing]);
 
-  // A save is addressed to the month it was typed in. If the rollover moved on
-  // in between, the write belonged to a month that is now closed, so it is
-  // dropped instead of reopening it.
-  function saveLive(payload, forPeriod) {
-    if (forPeriod !== periodRef.current) return Promise.resolve({ ok: true, status: 200 });
+  // A save is addressed to the month and the ledger it was typed in. If a
+  // rollover has since archived that month, the write would put the archived
+  // entries straight back into the live section, so it is dropped. The ledger
+  // key moves even when the month does not — a section can be repaired into the
+  // month it is already stamped with.
+  function saveLive(payload, forPeriod, forKey) {
+    if (forPeriod !== periodRef.current || forKey !== keyRef.current) {
+      return Promise.resolve({ ok: true, status: 200 });
+    }
     return api.putSection("monthly", { ...payload, period: forPeriod });
   }
 
@@ -142,6 +153,13 @@ export default function MonthlyBudget({ index, initial, onStatus, onPriceDelta, 
           </button>
         </div>
       </div>
+
+      {syncError && !viewing && (
+        <p className="month-sync-error">
+          Could not open this month with the server ({syncError}) — the entries below may still belong to a
+          month that has already finished.
+        </p>
+      )}
 
       {rolled && !viewing && (
         <p className="month-rolled">
@@ -206,7 +224,7 @@ export default function MonthlyBudget({ index, initial, onStatus, onPriceDelta, 
             onStatus={onStatus}
             onPriceDelta={onPriceDelta}
             onRemainingChange={onRemainingChange}
-            onSave={(payload) => saveLive(payload, livePeriod)}
+            onSave={(payload) => saveLive(payload, livePeriod, ledgerKey)}
           />
         ) : (
           <p className="empty-hint">Opening {shortLabel(currentPeriod())}…</p>

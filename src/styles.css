@@ -1010,6 +1010,15 @@ footer {
   margin: 0 0 16px;
 }
 
+.month-sync-error {
+  border-left: 2px solid var(--negative);
+  color: var(--negative);
+  font-size: 12.5px;
+  line-height: 1.5;
+  padding: 2px 0 2px 12px;
+  margin: 0 0 16px;
+}
+
 .month-archive-note {
   display: flex;
   align-items: center;
