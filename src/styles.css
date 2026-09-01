@@ -928,6 +928,158 @@ footer {
 }
 .income-stat strong { color: var(--accent); font-weight: 600; }
 
+/* ---------- Monthly budget: month strip and saved months ---------- */
+
+.month-strip {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.month-strip-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  flex-shrink: 0;
+}
+
+.month-chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+
+.month-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  flex-shrink: 0;
+  border: 1px solid var(--rule);
+  background: none;
+  color: var(--ink-soft);
+  font-family: var(--font-sans);
+  text-align: left;
+  padding: 7px 13px;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+.month-chip:hover { border-color: var(--rule-strong); color: var(--ink); }
+.month-chip.active {
+  border-color: var(--accent);
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.month-chip-name {
+  font-family: var(--font-serif);
+  font-size: 14.5px;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.month-chip-amount {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.month-chip-tag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.month-rolled {
+  border-left: 2px solid var(--accent);
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  font-style: italic;
+  line-height: 1.5;
+  padding: 2px 0 2px 12px;
+  margin: 0 0 16px;
+}
+
+.month-archive-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--panel);
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  padding: 9px 14px;
+  margin-bottom: 14px;
+}
+
+.month-back {
+  border: none;
+  background: none;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent);
+  padding: 0;
+  cursor: pointer;
+}
+.month-back:hover { text-decoration: underline; }
+
+.monthly-live[hidden] { display: none; }
+
+/* A saved month is a record, not a sheet: same rhythm as the live ledger,
+   with the editable affordances taken out rather than merely disabled. */
+.ledger.readonly .row { grid-template-columns: 1fr 112px; }
+
+.cell-name-static {
+  font-size: 14px;
+  color: var(--ink);
+  padding: 5px 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cell-price-static {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+  text-align: right;
+  color: var(--ink);
+  padding: 5px 2px;
+}
+
+.budget-static {
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.budget-static strong {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--ink);
+  margin-left: 8px;
+}
+
+.description-static {
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-style: italic;
+  line-height: 1.5;
+  padding: 6px 2px;
+  margin: 0 0 14px;
+}
+
 @media (max-width: 480px) {
   .row {
     grid-template-columns: 1fr 22px;
@@ -944,4 +1096,6 @@ footer {
   .day-group-head { flex-wrap: wrap; }
   .ledger-head { flex-wrap: wrap; }
   .ledger-head-right { flex-wrap: wrap; justify-content: flex-end; }
+  .month-strip { flex-direction: column; align-items: stretch; gap: 8px; }
+  .ledger.readonly .row { grid-template-columns: 1fr auto; grid-template-areas: none; }
 }

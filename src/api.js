@@ -16,6 +16,10 @@ export const api = {
   getState: () => request("/api/state"),
   putSection: (section, payload) =>
     request(`/api/state/${section}`, { method: "PUT", body: JSON.stringify(payload), keepalive: true }),
+  rolloverMonthly: (period) =>
+    request("/api/monthly/rollover", { method: "POST", body: JSON.stringify({ period }) }),
+  getMonthlyHistory: () => request("/api/monthly/history"),
+  getMonthlyArchive: (period) => request(`/api/monthly/history/${period}`),
   getNotepads: () => request("/api/notepads"),
   createNotepad: (payload) => request("/api/notepads", { method: "POST", body: JSON.stringify(payload) }),
   putNotepad: (id, payload) =>

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { api, fmt } from "../api";
 import Ledger from "./Ledger.jsx";
 import Wallets from "./Wallets.jsx";
+import MonthlyBudget from "./MonthlyBudget.jsx";
 import CustomNotepads from "./CustomNotepads.jsx";
 
 const STATUS_LABEL = { saving: "Saving…", saved: "Synced", error: "Save failed" };
@@ -119,19 +120,9 @@ export default function Notepad({ email, name, onLoggedOut }) {
 
           {tailReady && (
             <>
-              <Ledger
+              <MonthlyBudget
                 index={monthlyIndex}
-                title="Monthly Budget"
-                note="Amount Adjustable"
-                section="monthly"
-                hasDay={true}
-                hasBudget={true}
-                printable={true}
-                hasDescription={true}
-                descriptionPlaceholder="Add a note about this month's budget…"
-                initialItems={state.monthly.items}
-                initialBudget={state.monthly.budget}
-                initialDescription={state.monthly.description}
+                initial={state.monthly}
                 onStatus={setStatus}
                 onPriceDelta={handlePriceDelta}
                 onRemainingChange={setMonthlyRemaining}

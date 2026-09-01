@@ -63,6 +63,8 @@ export default function Ledger({
   hasDay,
   hasBudget,
   printable,
+  readOnly = false,
+  periodLabel,
   initialItems,
   initialBudget,
   onStatus,
@@ -107,6 +109,7 @@ export default function Ledger({
   }
 
   useEffect(() => {
+    if (readOnly) return;
     if (!mounted.current) {
       mounted.current = true;
       return;
@@ -130,6 +133,7 @@ export default function Ledger({
   // this section unmounts, send it immediately instead of silently dropping it.
   useEffect(() => {
     function flush() {
+      if (readOnly) return;
       if (timer.current && latestPayload.current) {
         clearTimeout(timer.current);
         timer.current = null;
@@ -146,7 +150,7 @@ export default function Ledger({
   }, []);
 
   useEffect(() => {
-    if (!hasDay) return;
+    if (!hasDay || readOnly) return;
     const label = todayLabel();
     setRows((prev) => (prev.some((r) => r.day === label) ? prev : [...prev, { day: label, name: "", price: 0 }]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -192,7 +196,7 @@ export default function Ledger({
   // `mode` ("all" | "odd" | "even") just seeds the Pages control.
   function handlePrint(mode = "all") {
     const now = new Date();
-    const monthYear = `${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+    const monthYear = periodLabel || `${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
     const groups = hasDay ? groupByDay(rows) : [{ day: "", indices: rows.map((_, i) => i) }];
 
     const headBlock = `
@@ -538,7 +542,7 @@ export default function Ledger({
   }
 
   return (
-    <section className="ledger">
+    <section className={"ledger" + (readOnly ? " readonly" : "")}>
       <div className="ledger-head">
         <div className="ledger-title">
           <span className="ledger-index">{index}</span>
@@ -596,33 +600,44 @@ export default function Ledger({
 
       {hasBudget && (
         <div className="budget-strip">
-          <label>
-            <span>Budget</span>
-            <input
-              type="number"
-              min="0"
-              step="1"
-              value={budget}
-              onChange={(e) => setBudget(e.target.value === "" ? 0 : Number(e.target.value))}
-            />
-          </label>
+          {readOnly ? (
+            <span className="budget-static">
+              Budget <strong>{fmt(budget)}</strong>
+            </span>
+          ) : (
+            <label>
+              <span>Budget</span>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={budget}
+                onChange={(e) => setBudget(e.target.value === "" ? 0 : Number(e.target.value))}
+              />
+            </label>
+          )}
           <span className={"remaining" + (remaining < 0 ? " negative" : "")}>Remaining {fmt(remaining)}</span>
         </div>
       )}
 
-      {hasDescription && (
-        <textarea
-          className="description-field"
-          placeholder={descriptionPlaceholder}
-          rows={2}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-      )}
+      {hasDescription &&
+        (readOnly ? (
+          description ? <p className="description-static">{description}</p> : null
+        ) : (
+          <textarea
+            className="description-field"
+            placeholder={descriptionPlaceholder}
+            rows={2}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        ))}
 
       {hasDay ? (
         <div className="rows grouped">
-          {rows.length === 0 && <p className="empty-hint">No entries yet.</p>}
+          {rows.length === 0 && (
+            <p className="empty-hint">{readOnly ? "No entries were recorded this month." : "No entries yet."}</p>
+          )}
           {groupByDay(rows).map(({ day, indices }) => {
             const dayTotal = indices.reduce((sum, i) => sum + (Number(rows[i].price) || 0), 0);
             return (
@@ -631,31 +646,40 @@ export default function Ledger({
                   <span className="day-label">{displayDay(day)}</span>
                   <span className="day-total">{fmt(dayTotal)}</span>
                 </div>
-                {indices.map((idx) => (
-                  <div className="row" key={idx}>
-                    <input
-                      className="cell-name"
-                      type="text"
-                      placeholder={namePlaceholder}
-                      value={rows[idx].name}
-                      onChange={(e) => updateRow(idx, "name", e.target.value)}
-                    />
-                    <input
-                      className="cell-price"
-                      type="number"
-                      placeholder="0"
-                      step="1"
-                      value={rows[idx].price}
-                      onChange={(e) => updateRow(idx, "price", e.target.value)}
-                    />
-                    <button type="button" className="cell-del" aria-label="Remove row" onClick={() => removeRow(idx)}>
-                      ×
-                    </button>
-                  </div>
-                ))}
-                <button type="button" className="add-row day-add" onClick={() => addRowToDay(day)}>
-                  + Add to {displayDay(day)}
-                </button>
+                {indices.map((idx) =>
+                  readOnly ? (
+                    <div className="row" key={idx}>
+                      <span className="cell-name-static">{rows[idx].name || "—"}</span>
+                      <span className="cell-price-static">{fmt(rows[idx].price)}</span>
+                    </div>
+                  ) : (
+                    <div className="row" key={idx}>
+                      <input
+                        className="cell-name"
+                        type="text"
+                        placeholder={namePlaceholder}
+                        value={rows[idx].name}
+                        onChange={(e) => updateRow(idx, "name", e.target.value)}
+                      />
+                      <input
+                        className="cell-price"
+                        type="number"
+                        placeholder="0"
+                        step="1"
+                        value={rows[idx].price}
+                        onChange={(e) => updateRow(idx, "price", e.target.value)}
+                      />
+                      <button type="button" className="cell-del" aria-label="Remove row" onClick={() => removeRow(idx)}>
+                        ×
+                      </button>
+                    </div>
+                  )
+                )}
+                {!readOnly && (
+                  <button type="button" className="add-row day-add" onClick={() => addRowToDay(day)}>
+                    + Add to {displayDay(day)}
+                  </button>
+                )}
               </div>
             );
           })}
@@ -663,33 +687,46 @@ export default function Ledger({
       ) : (
         <>
           <div className="rows">
-            {rows.length === 0 && <p className="empty-hint">No entries yet — add one below.</p>}
-            {rows.map((row, idx) => (
-              <div className="row" key={idx}>
-                <input
-                  className="cell-name"
-                  type="text"
-                  placeholder={namePlaceholder}
-                  value={row.name}
-                  onChange={(e) => updateRow(idx, "name", e.target.value)}
-                />
-                <input
-                  className="cell-price"
-                  type="number"
-                  placeholder="0"
-                  step="1"
-                  value={row.price}
-                  onChange={(e) => updateRow(idx, "price", e.target.value)}
-                />
-                <button type="button" className="cell-del" aria-label="Remove row" onClick={() => removeRow(idx)}>
-                  ×
-                </button>
-              </div>
-            ))}
+            {rows.length === 0 && (
+              <p className="empty-hint">
+                {readOnly ? "No entries were recorded this month." : "No entries yet — add one below."}
+              </p>
+            )}
+            {rows.map((row, idx) =>
+              readOnly ? (
+                <div className="row" key={idx}>
+                  <span className="cell-name-static">{row.name || "—"}</span>
+                  <span className="cell-price-static">{fmt(row.price)}</span>
+                </div>
+              ) : (
+                <div className="row" key={idx}>
+                  <input
+                    className="cell-name"
+                    type="text"
+                    placeholder={namePlaceholder}
+                    value={row.name}
+                    onChange={(e) => updateRow(idx, "name", e.target.value)}
+                  />
+                  <input
+                    className="cell-price"
+                    type="number"
+                    placeholder="0"
+                    step="1"
+                    value={row.price}
+                    onChange={(e) => updateRow(idx, "price", e.target.value)}
+                  />
+                  <button type="button" className="cell-del" aria-label="Remove row" onClick={() => removeRow(idx)}>
+                    ×
+                  </button>
+                </div>
+              )
+            )}
           </div>
-          <button type="button" className="add-row" onClick={addRow}>
-            + {addLabel || "Add item"}
-          </button>
+          {!readOnly && (
+            <button type="button" className="add-row" onClick={addRow}>
+              + {addLabel || "Add item"}
+            </button>
+          )}
         </>
       )}
     </section>
