@@ -40,6 +40,10 @@ export default function MonthlyBudget({ index, initial, onStatus, onPriceDelta, 
   const [syncError, setSyncError] = useState("");
   const periodRef = useRef(period);
   const keyRef = useRef(ledgerKey);
+  // Saves carry the month stamp only once the server has confirmed it. A stamp
+  // the client merely assumed is how last month's entries came to be marked as
+  // this month's when the rollover request was being rejected.
+  const confirmedRef = useRef(initial.period === currentPeriod());
   const chipsRef = useRef(null);
 
   periodRef.current = period;
@@ -54,6 +58,7 @@ export default function MonthlyBudget({ index, initial, onStatus, onPriceDelta, 
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+      confirmedRef.current = true;
       setSyncError("");
       setPeriod(data.period);
       setLive(data.monthly);
@@ -101,7 +106,7 @@ export default function MonthlyBudget({ index, initial, onStatus, onPriceDelta, 
     if (forPeriod !== periodRef.current || forKey !== keyRef.current) {
       return Promise.resolve({ ok: true, status: 200 });
     }
-    return api.putSection("monthly", { ...payload, period: forPeriod });
+    return api.putSection("monthly", confirmedRef.current ? { ...payload, period: forPeriod } : payload);
   }
 
   function openMonth(next) {
