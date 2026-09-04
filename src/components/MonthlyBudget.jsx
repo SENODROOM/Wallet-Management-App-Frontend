@@ -191,6 +191,7 @@ export default function MonthlyBudget({ index, initial, onStatus, onPriceDelta, 
               section="monthly"
               hasDay={true}
               hasBudget={true}
+              hasPetrol={true}
               printable={true}
               hasDescription={true}
               readOnly={true}
@@ -219,6 +220,7 @@ export default function MonthlyBudget({ index, initial, onStatus, onPriceDelta, 
             section="monthly"
             hasDay={true}
             hasBudget={true}
+            hasPetrol={true}
             printable={true}
             hasDescription={true}
             descriptionPlaceholder="Add a note about this month's budget…"

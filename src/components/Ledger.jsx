@@ -62,6 +62,7 @@ export default function Ledger({
   section,
   hasDay,
   hasBudget,
+  hasPetrol,
   printable,
   readOnly = false,
   periodLabel,
@@ -79,11 +80,20 @@ export default function Ledger({
   onRemove
 }) {
   const [rows, setRows] = useState(() =>
-    (initialItems || []).map((r) => ({ day: canonicalDay(r.day || ""), name: r.name || "", price: Number(r.price) || 0 }))
+    (initialItems || []).map((r) => ({
+      day: canonicalDay(r.day || ""),
+      name: r.name || "",
+      price: Number(r.price) || 0,
+      petrol: !!r.petrol
+    }))
   );
   const [budget, setBudget] = useState(Number(initialBudget) || 0);
   const [description, setDescription] = useState(initialDescription || "");
   const [duplex, setDuplex] = useState(false);
+  // Petrol lines are picked out of the ordinary entries rather than kept in a
+  // section of their own: the money is still monthly spending, so it has to go
+  // on counting towards the budget while also totalling on its own.
+  const [picking, setPicking] = useState(false);
   const mounted = useRef(false);
   const timer = useRef(null);
   const latestPayload = useRef(null);
@@ -152,12 +162,16 @@ export default function Ledger({
   useEffect(() => {
     if (!hasDay || readOnly) return;
     const label = todayLabel();
-    setRows((prev) => (prev.some((r) => r.day === label) ? prev : [...prev, { day: label, name: "", price: 0 }]));
+    setRows((prev) =>
+      prev.some((r) => r.day === label) ? prev : [...prev, { day: label, name: "", price: 0, petrol: false }]
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const total = rows.reduce((sum, r) => sum + (Number(r.price) || 0), 0);
   const remaining = budget - total;
+  const petrolRows = rows.filter((r) => r.petrol);
+  const petrolTotal = petrolRows.reduce((sum, r) => sum + (Number(r.price) || 0), 0);
 
   useEffect(() => {
     if (hasBudget) onRemainingChange?.(remaining);
@@ -177,11 +191,22 @@ export default function Ledger({
   }
 
   function addRow() {
-    setRows((prev) => [...prev, hasDay ? { day: todayLabel(), name: "", price: 0 } : { name: "", price: 0 }]);
+    setRows((prev) => [
+      ...prev,
+      hasDay ? { day: todayLabel(), name: "", price: 0, petrol: false } : { name: "", price: 0, petrol: false }
+    ]);
   }
 
   function addRowToDay(day) {
-    setRows((prev) => [...prev, { day, name: "", price: 0 }]);
+    setRows((prev) => [...prev, { day, name: "", price: 0, petrol: false }]);
+  }
+
+  function togglePetrol(idx) {
+    setRows((prev) => {
+      const next = [...prev];
+      next[idx] = { ...next[idx], petrol: !next[idx].petrol };
+      return next;
+    });
   }
 
   function removeRow(idx) {
@@ -189,43 +214,84 @@ export default function Ledger({
     setRows((prev) => prev.filter((_, i) => i !== idx));
   }
 
+  function rowClass(row) {
+    return "row" + (hasPetrol ? " petrol-col" : "") + (row && row.petrol ? " is-petrol" : "");
+  }
+
+  // The marker keeps its column whether or not the row is petrol, so the names
+  // and amounts stay on the same grid lines as picking is switched on and off.
+  function petrolCell(idx) {
+    if (!hasPetrol) return null;
+    const on = !!rows[idx].petrol;
+    if (readOnly || !picking) {
+      return (
+        <span className={"petrol-mark static" + (on ? " on" : "")} title={on ? "Counted in petrol" : undefined}>
+          <span className="petrol-dot" />
+        </span>
+      );
+    }
+    return (
+      <button
+        type="button"
+        className={"petrol-mark" + (on ? " on" : "")}
+        aria-pressed={on}
+        aria-label={on ? "Remove from petrol" : "Count in petrol"}
+        title={on ? "Remove from petrol" : "Count in petrol"}
+        onClick={() => togglePetrol(idx)}
+      >
+        <span className="petrol-dot" />
+      </button>
+    );
+  }
+
   // Opens a print-setup window holding the report plus a screen-only toolbar:
   // paper, margin and row density are live controls (persisted to localStorage)
   // rather than baked-in numbers, and "Pages" does manual two-sided by emitting
   // only the odd or only the even sheets for printers with no duplexer.
-  // `mode` ("all" | "odd" | "even") just seeds the Pages control.
-  function handlePrint(mode = "all") {
+  // `mode` ("all" | "odd" | "even") just seeds the Pages control. `petrolOnly`
+  // prints the marked fuel lines by themselves — no budget summary and no note,
+  // because that sheet is about what the petrol cost, not about the month.
+  function handlePrint(mode = "all", petrolOnly = false) {
     const now = new Date();
     const monthYear = periodLabel || `${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
-    const groups = hasDay ? groupByDay(rows) : [{ day: "", indices: rows.map((_, i) => i) }];
+    const source = petrolOnly ? petrolRows : rows;
+    const heading = petrolOnly ? `${title} — Petrol` : title;
+    const groups = hasDay ? groupByDay(source) : [{ day: "", indices: source.map((_, i) => i) }];
+    // Nothing marked yet: still print the sheet, saying so, rather than a page
+    // with only a heading on it.
+    if (!groups.length) groups.push({ day: "", indices: [] });
 
     const headBlock = `
       <div class="blk head-block">
-        <h1>${escapeHtml(title)}</h1>
+        <h1>${escapeHtml(heading)}</h1>
         <p class="subtitle">${escapeHtml(monthYear)}</p>
-        ${hasBudget ? `
+        ${petrolOnly ? `
+          <div class="summary">
+            <div>Petrol<strong>${escapeHtml(fmt(petrolTotal))}</strong></div>
+            <div>Entries<strong>${source.length}</strong></div>
+          </div>` : hasBudget ? `
           <div class="summary">
             <div>Budget<strong>${escapeHtml(fmt(budget))}</strong></div>
             <div>Spent<strong>${escapeHtml(fmt(total))}</strong></div>
             <div>Remaining<strong class="${remaining < 0 ? "negative" : ""}">${escapeHtml(fmt(remaining))}</strong></div>
           </div>` : ""}
-        ${description ? `<p class="description">${escapeHtml(description)}</p>` : ""}
+        ${!petrolOnly && description ? `<p class="description">${escapeHtml(description)}</p>` : ""}
       </div>`;
 
     const groupBlocks = groups
       .map(({ day, indices }) => {
-        const dayTotal = indices.reduce((sum, i) => sum + (Number(rows[i].price) || 0), 0);
+        const dayTotal = indices.reduce((sum, i) => sum + (Number(source[i].price) || 0), 0);
         const head = day
           ? `<div class="blk day-head"><span>${escapeHtml(displayDay(day))}</span><span class="amt">${escapeHtml(fmt(dayTotal))}</span></div>`
           : "";
         const lines = indices.length
           ? indices
               .map((i) => {
-                const row = rows[i];
+                const row = source[i];
                 return `<div class="blk line"><span class="nm">${escapeHtml(row.name || "—")}</span><span class="amt">${escapeHtml(fmt(row.price))}</span></div>`;
               })
               .join("")
-          : `<div class="blk line empty">No entries</div>`;
+          : `<div class="blk line empty">${petrolOnly ? "No petrol entries" : "No entries"}</div>`;
         return head + lines;
       })
       .join("");
@@ -238,7 +304,7 @@ export default function Ledger({
       <!doctype html>
       <html>
         <head>
-          <title>${escapeHtml(title)} — ${escapeHtml(monthYear)}</title>
+          <title>${escapeHtml(heading)} — ${escapeHtml(monthYear)}</title>
           <meta charset="utf-8" />
           <style>
             * { box-sizing: border-box; }
@@ -588,6 +654,16 @@ export default function Ledger({
                   Print
                 </button>
               )}
+              {hasPetrol && (
+                <button
+                  type="button"
+                  className="ledger-print petrol-print"
+                  title="Print only the entries marked as petrol — no budget, no note"
+                  onClick={() => handlePrint("all", true)}
+                >
+                  Petrol
+                </button>
+              )}
             </div>
           )}
           {onRemove && (
@@ -634,7 +710,7 @@ export default function Ledger({
         ))}
 
       {hasDay ? (
-        <div className="rows grouped">
+        <div className={"rows grouped" + (picking ? " picking-rows" : "")}>
           {rows.length === 0 && (
             <p className="empty-hint">{readOnly ? "No entries were recorded this month." : "No entries yet."}</p>
           )}
@@ -648,12 +724,14 @@ export default function Ledger({
                 </div>
                 {indices.map((idx) =>
                   readOnly ? (
-                    <div className="row" key={idx}>
+                    <div className={rowClass(rows[idx])} key={idx}>
+                      {petrolCell(idx)}
                       <span className="cell-name-static">{rows[idx].name || "—"}</span>
                       <span className="cell-price-static">{fmt(rows[idx].price)}</span>
                     </div>
                   ) : (
-                    <div className="row" key={idx}>
+                    <div className={rowClass(rows[idx])} key={idx}>
+                      {petrolCell(idx)}
                       <input
                         className="cell-name"
                         type="text"
@@ -686,7 +764,7 @@ export default function Ledger({
         </div>
       ) : (
         <>
-          <div className="rows">
+          <div className={"rows" + (picking ? " picking-rows" : "")}>
             {rows.length === 0 && (
               <p className="empty-hint">
                 {readOnly ? "No entries were recorded this month." : "No entries yet — add one below."}
@@ -694,12 +772,14 @@ export default function Ledger({
             )}
             {rows.map((row, idx) =>
               readOnly ? (
-                <div className="row" key={idx}>
+                <div className={rowClass(row)} key={idx}>
+                  {petrolCell(idx)}
                   <span className="cell-name-static">{row.name || "—"}</span>
                   <span className="cell-price-static">{fmt(row.price)}</span>
                 </div>
               ) : (
-                <div className="row" key={idx}>
+                <div className={rowClass(row)} key={idx}>
+                  {petrolCell(idx)}
                   <input
                     className="cell-name"
                     type="text"
@@ -728,6 +808,39 @@ export default function Ledger({
             </button>
           )}
         </>
+      )}
+
+      {hasPetrol && !readOnly && (
+        <div className={"petrol-bar" + (picking ? " picking" : "")}>
+          <button
+            type="button"
+            className={"add-row petrol-pick" + (picking ? " on" : "")}
+            aria-pressed={picking}
+            onClick={() => setPicking((p) => !p)}
+          >
+            {picking ? "Done selecting petrol" : "Select petrol entries"}
+          </button>
+          <span className="petrol-summary">
+            Petrol <strong>{fmt(petrolTotal)}</strong>
+            <span className="petrol-count">{petrolRows.length === 1 ? "1 entry" : `${petrolRows.length} entries`}</span>
+          </span>
+        </div>
+      )}
+
+      {hasPetrol && !readOnly && picking && (
+        <p className="petrol-hint">
+          Click the marker beside an entry to count it in petrol. Marked entries still count towards the budget —
+          the Petrol button at the top prints them on their own.
+        </p>
+      )}
+
+      {hasPetrol && readOnly && petrolRows.length > 0 && (
+        <div className="petrol-bar">
+          <span className="petrol-summary">
+            Petrol <strong>{fmt(petrolTotal)}</strong>
+            <span className="petrol-count">{petrolRows.length === 1 ? "1 entry" : `${petrolRows.length} entries`}</span>
+          </span>
+        </div>
       )}
     </section>
   );
