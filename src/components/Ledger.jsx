@@ -214,34 +214,30 @@ export default function Ledger({
     setRows((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  function rowClass(row) {
-    return "row" + (hasPetrol ? " petrol-col" : "") + (row && row.petrol ? " is-petrol" : "");
-  }
-
-  // The marker keeps its column whether or not the row is petrol, so the names
-  // and amounts stay on the same grid lines as picking is switched on and off.
-  function petrolCell(idx) {
-    if (!hasPetrol) return null;
-    const on = !!rows[idx].petrol;
-    if (readOnly || !picking) {
-      return (
-        <span className={"petrol-mark static" + (on ? " on" : "")} title={on ? "Counted in petrol" : undefined}>
-          <span className="petrol-dot" />
-        </span>
-      );
-    }
-    return (
-      <button
-        type="button"
-        className={"petrol-mark" + (on ? " on" : "")}
-        aria-pressed={on}
-        aria-label={on ? "Remove from petrol" : "Count in petrol"}
-        title={on ? "Remove from petrol" : "Count in petrol"}
-        onClick={() => togglePetrol(idx)}
-      >
-        <span className="petrol-dot" />
-      </button>
-    );
+  // A petrol entry is marked by shading the row rather than by a badge in a
+  // column of its own — nothing is added beside the names, so the ledger keeps
+  // its ruling. While picking, the row is the button: the fields go inert (see
+  // .picking-rows in the stylesheet) so a click lands on the row, not in a
+  // text box.
+  function rowProps(idx) {
+    const row = rows[idx];
+    const marked = !!(row && row.petrol);
+    const className = "row" + (marked ? " is-petrol" : "");
+    if (!hasPetrol || readOnly || !picking) return { className };
+    return {
+      className,
+      role: "button",
+      tabIndex: 0,
+      "aria-pressed": marked,
+      title: marked ? "Remove from petrol" : "Count in petrol",
+      onClick: () => togglePetrol(idx),
+      onKeyDown: (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          togglePetrol(idx);
+        }
+      }
+    };
   }
 
   // Opens a print-setup window holding the report plus a screen-only toolbar:
@@ -709,6 +705,39 @@ export default function Ledger({
           />
         ))}
 
+      {hasPetrol && !readOnly && (
+        <div className={"petrol-bar" + (picking ? " picking" : "")}>
+          <button
+            type="button"
+            className={"add-row petrol-pick" + (picking ? " on" : "")}
+            aria-pressed={picking}
+            onClick={() => setPicking((p) => !p)}
+          >
+            {picking ? "Done selecting petrol" : "Select petrol entries"}
+          </button>
+          <span className="petrol-summary">
+            Petrol <strong>{fmt(petrolTotal)}</strong>
+            <span className="petrol-count">{petrolRows.length === 1 ? "1 entry" : `${petrolRows.length} entries`}</span>
+          </span>
+        </div>
+      )}
+
+      {hasPetrol && !readOnly && picking && (
+        <p className="petrol-hint">
+          Click an entry to shade it into petrol. Shaded entries still count towards the budget — the Petrol
+          button at the top prints them on their own.
+        </p>
+      )}
+
+      {hasPetrol && readOnly && petrolRows.length > 0 && (
+        <div className="petrol-bar">
+          <span className="petrol-summary">
+            Petrol <strong>{fmt(petrolTotal)}</strong>
+            <span className="petrol-count">{petrolRows.length === 1 ? "1 entry" : `${petrolRows.length} entries`}</span>
+          </span>
+        </div>
+      )}
+
       {hasDay ? (
         <div className={"rows grouped" + (picking ? " picking-rows" : "")}>
           {rows.length === 0 && (
@@ -724,14 +753,12 @@ export default function Ledger({
                 </div>
                 {indices.map((idx) =>
                   readOnly ? (
-                    <div className={rowClass(rows[idx])} key={idx}>
-                      {petrolCell(idx)}
+                    <div key={idx} {...rowProps(idx)}>
                       <span className="cell-name-static">{rows[idx].name || "—"}</span>
                       <span className="cell-price-static">{fmt(rows[idx].price)}</span>
                     </div>
                   ) : (
-                    <div className={rowClass(rows[idx])} key={idx}>
-                      {petrolCell(idx)}
+                    <div key={idx} {...rowProps(idx)}>
                       <input
                         className="cell-name"
                         type="text"
@@ -772,14 +799,12 @@ export default function Ledger({
             )}
             {rows.map((row, idx) =>
               readOnly ? (
-                <div className={rowClass(row)} key={idx}>
-                  {petrolCell(idx)}
+                <div key={idx} {...rowProps(idx)}>
                   <span className="cell-name-static">{row.name || "—"}</span>
                   <span className="cell-price-static">{fmt(row.price)}</span>
                 </div>
               ) : (
-                <div className={rowClass(row)} key={idx}>
-                  {petrolCell(idx)}
+                <div key={idx} {...rowProps(idx)}>
                   <input
                     className="cell-name"
                     type="text"
@@ -808,39 +833,6 @@ export default function Ledger({
             </button>
           )}
         </>
-      )}
-
-      {hasPetrol && !readOnly && (
-        <div className={"petrol-bar" + (picking ? " picking" : "")}>
-          <button
-            type="button"
-            className={"add-row petrol-pick" + (picking ? " on" : "")}
-            aria-pressed={picking}
-            onClick={() => setPicking((p) => !p)}
-          >
-            {picking ? "Done selecting petrol" : "Select petrol entries"}
-          </button>
-          <span className="petrol-summary">
-            Petrol <strong>{fmt(petrolTotal)}</strong>
-            <span className="petrol-count">{petrolRows.length === 1 ? "1 entry" : `${petrolRows.length} entries`}</span>
-          </span>
-        </div>
-      )}
-
-      {hasPetrol && !readOnly && picking && (
-        <p className="petrol-hint">
-          Click the marker beside an entry to count it in petrol. Marked entries still count towards the budget —
-          the Petrol button at the top prints them on their own.
-        </p>
-      )}
-
-      {hasPetrol && readOnly && petrolRows.length > 0 && (
-        <div className="petrol-bar">
-          <span className="petrol-summary">
-            Petrol <strong>{fmt(petrolTotal)}</strong>
-            <span className="petrol-count">{petrolRows.length === 1 ? "1 entry" : `${petrolRows.length} entries`}</span>
-          </span>
-        </div>
       )}
     </section>
   );

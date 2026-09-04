@@ -11,6 +11,10 @@
   --accent-ink: #f7f4ee;
   --negative: #a24132;
   --focus: #3c6e47;
+  /* Petrol entries are shaded rather than badged — a block just dark enough to
+     pick out of the ruling without becoming a second colour in the page. */
+  --petrol-block: rgba(20, 16, 4, 0.07);
+  --petrol-block-hover: rgba(20, 16, 4, 0.035);
   --font-serif: Georgia, "Iowan Old Style", "Palatino Linotype", ui-serif, serif;
   --font-sans: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, "Liberation Mono", monospace;
@@ -30,6 +34,8 @@
     --accent-ink: #14170f;
     --negative: #dd8a76;
     --focus: #7fbb86;
+    --petrol-block: rgba(0, 0, 0, 0.38);
+    --petrol-block-hover: rgba(0, 0, 0, 0.18);
   }
 }
 
@@ -560,68 +566,64 @@ body {
 .row input:hover { border-bottom-color: var(--rule-strong); }
 .row input:focus { outline: none; border-bottom-color: var(--focus); }
 
-/* Petrol lines live among the ordinary entries — the marker column is always
-   held open so switching picking on and off never shifts the amounts. */
-.row.petrol-col { grid-template-columns: 18px 1fr 112px 22px; }
-.ledger.readonly .row.petrol-col { grid-template-columns: 18px 1fr 112px; }
+/* Petrol lines live among the ordinary entries — the row is shaded in place, so
+   nothing is added beside the names and the ledger keeps its ruling. */
+/* The shade bleeds a little past the ruling — 8px each side, laid down with a
+   shadow so the row's own box, and every column in it, stays exactly where the
+   unshaded rows put it. */
+.row.is-petrol {
+  background: var(--petrol-block);
+  box-shadow: -8px 0 0 var(--petrol-block), 8px 0 0 var(--petrol-block);
+}
 
-.petrol-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 22px;
-  padding: 0;
-  border: none;
-  background: none;
+/* Picking turns the rows into targets: the fields go inert so a click lands on
+   the row rather than in a text box. */
+.picking-rows .row { cursor: pointer; }
+.picking-rows .row input,
+.picking-rows .row .cell-del { pointer-events: none; }
+.picking-rows .row .cell-del { opacity: 0; }
+.picking-rows .row:hover {
+  background: var(--petrol-block-hover);
+  box-shadow: -8px 0 0 var(--petrol-block-hover), 8px 0 0 var(--petrol-block-hover);
 }
-button.petrol-mark { cursor: pointer; }
-
-.petrol-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  border: 1px solid var(--rule-strong);
-  background: transparent;
-  transition: background 0.12s, border-color 0.12s, transform 0.12s;
+.picking-rows .row.is-petrol:hover {
+  background: var(--petrol-block);
+  box-shadow: -8px 0 0 var(--petrol-block), 8px 0 0 var(--petrol-block);
 }
-.petrol-mark.static .petrol-dot { border-color: transparent; }
-.petrol-mark.on .petrol-dot {
-  background: #e79a2b;
-  border-color: #e79a2b;
-}
-/* While picking, an unmarked row still shows where its marker is. */
-.picking-rows .petrol-mark .petrol-dot { border-style: dashed; border-color: var(--rule-strong); }
-button.petrol-mark:hover .petrol-dot { border-color: #e79a2b; transform: scale(1.2); }
-button.petrol-mark:focus-visible {
+.picking-rows .row:focus-visible {
   outline: 2px solid var(--focus);
-  outline-offset: 1px;
-  border-radius: 50%;
+  outline-offset: -2px;
 }
 
 .petrol-bar {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
+  margin: 0 0 14px;
 }
 
+/* Overrides .add-row's own top padding: this one is a strip of its own, not a
+   button hanging off the bottom of a list. */
 .petrol-pick {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  padding: 0;
+  font-size: 12.5px;
 }
 .petrol-pick::before {
   content: "";
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  border: 1px dashed var(--rule-strong);
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--petrol-block);
+  border: 1px solid var(--rule);
 }
-.petrol-pick.on { color: #e79a2b; }
-.petrol-pick.on::before { background: #e79a2b; border-style: solid; border-color: #e79a2b; }
-.petrol-pick:hover { color: #e79a2b; }
+.petrol-pick.on { color: var(--accent); }
+.petrol-pick.on::before { border-color: var(--accent); }
+.petrol-pick:hover { color: var(--accent); }
 
 .petrol-summary {
   font-family: var(--font-sans);
@@ -630,7 +632,6 @@ button.petrol-mark:focus-visible {
   letter-spacing: 0.02em;
   text-transform: uppercase;
   color: var(--ink-soft);
-  padding-top: 10px;
 }
 .petrol-summary strong {
   font-family: var(--font-mono);
@@ -652,7 +653,7 @@ button.petrol-mark:focus-visible {
   font-size: 12.5px;
   font-style: italic;
   line-height: 1.5;
-  margin: 6px 0 0;
+  margin: -8px 0 14px;
 }
 
 .day-group { margin-bottom: 18px; }
@@ -1202,18 +1203,5 @@ footer {
   .ledger-head-right { flex-wrap: wrap; justify-content: flex-end; }
   .month-strip { flex-direction: column; align-items: stretch; gap: 8px; }
   .ledger.readonly .row { grid-template-columns: 1fr auto; grid-template-areas: none; }
-  .row.petrol-col {
-    grid-template-columns: 18px 1fr 22px;
-    grid-template-areas:
-      "fuel name del"
-      "fuel price del";
-  }
-  .row.petrol-col .petrol-mark { grid-area: fuel; align-self: start; }
-  .ledger.readonly .row.petrol-col {
-    grid-template-columns: 18px 1fr auto;
-    grid-template-areas: none;
-  }
-  /* No areas on a saved row, so the marker must not keep claiming one. */
-  .ledger.readonly .row.petrol-col .petrol-mark { grid-area: auto; }
   .petrol-bar { align-items: flex-start; }
 }
