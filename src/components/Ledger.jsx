@@ -94,6 +94,10 @@ export default function Ledger({
   // section of their own: the money is still monthly spending, so it has to go
   // on counting towards the budget while also totalling on its own.
   const [picking, setPicking] = useState(false);
+  // Petrol view: the section narrows to the marked entries, and the budget and
+  // the note step out — they describe the whole month, not the fuel. Print
+  // follows whatever is on screen, so it prints this list while the view is on.
+  const [petrolView, setPetrolView] = useState(false);
   const mounted = useRef(false);
   const timer = useRef(null);
   const latestPayload = useRef(null);
@@ -172,6 +176,9 @@ export default function Ledger({
   const remaining = budget - total;
   const petrolRows = rows.filter((r) => r.petrol);
   const petrolTotal = petrolRows.reduce((sum, r) => sum + (Number(r.price) || 0), 0);
+  // Indices into `rows`, never a copy: editing and removing a row still address
+  // the entry itself, whichever list it is being shown in.
+  const visible = rows.map((_, i) => i).filter((i) => !petrolView || rows[i].petrol);
 
   useEffect(() => {
     if (hasBudget) onRemainingChange?.(remaining);
@@ -219,6 +226,22 @@ export default function Ledger({
   // its ruling. While picking, the row is the button: the fields go inert (see
   // .picking-rows in the stylesheet) so a click lands on the row, not in a
   // text box.
+  // groupByDay() groups a list of rows; on screen the list is a set of indices
+  // into `rows`, so the grouping has to follow the indices instead.
+  function groupVisibleByDay() {
+    const order = [];
+    const map = new Map();
+    visible.forEach((idx) => {
+      const key = rows[idx].day || "";
+      if (!map.has(key)) {
+        map.set(key, []);
+        order.push(key);
+      }
+      map.get(key).push(idx);
+    });
+    return order.map((day) => ({ day, indices: map.get(day) }));
+  }
+
   function rowProps(idx) {
     const row = rows[idx];
     const marked = !!(row && row.petrol);
@@ -614,7 +637,7 @@ export default function Ledger({
           </h2>
         </div>
         <div className="ledger-head-right">
-          <span className="ledger-total">{fmt(total)}</span>
+          <span className="ledger-total">{fmt(petrolView ? petrolTotal : total)}</span>
           {printable && (
             <div className="print-controls">
               <label
@@ -633,10 +656,10 @@ export default function Ledger({
               </label>
               {duplex ? (
                 <>
-                  <button type="button" className="ledger-print" onClick={() => handlePrint("odd")}>
+                  <button type="button" className="ledger-print" onClick={() => handlePrint("odd", petrolView)}>
                     Odd
                   </button>
-                  <button type="button" className="ledger-print" onClick={() => handlePrint("even")}>
+                  <button type="button" className="ledger-print" onClick={() => handlePrint("even", petrolView)}>
                     Even
                   </button>
                 </>
@@ -644,8 +667,8 @@ export default function Ledger({
                 <button
                   type="button"
                   className="ledger-print"
-                  aria-label="Print"
-                  onClick={() => handlePrint("all")}
+                  aria-label={petrolView ? "Print the petrol entries" : "Print"}
+                  onClick={() => handlePrint("all", petrolView)}
                 >
                   Print
                 </button>
@@ -653,9 +676,21 @@ export default function Ledger({
               {hasPetrol && (
                 <button
                   type="button"
-                  className="ledger-print petrol-print"
-                  title="Print only the entries marked as petrol — no budget, no note"
-                  onClick={() => handlePrint("all", true)}
+                  className={"ledger-print petrol-print" + (petrolView ? " on" : "")}
+                  aria-pressed={petrolView}
+                  title={
+                    petrolView
+                      ? "Back to the whole month"
+                      : "Show only the entries marked as petrol — Print then prints just those"
+                  }
+                  onClick={() => {
+                    setPetrolView((v) => {
+                      // Picking needs every entry in front of you, so it cannot
+                      // stay on behind a filtered list.
+                      if (!v) setPicking(false);
+                      return !v;
+                    });
+                  }}
                 >
                   Petrol
                 </button>
@@ -670,7 +705,7 @@ export default function Ledger({
         </div>
       </div>
 
-      {hasBudget && (
+      {hasBudget && !petrolView && (
         <div className="budget-strip">
           {readOnly ? (
             <span className="budget-static">
@@ -692,7 +727,7 @@ export default function Ledger({
         </div>
       )}
 
-      {hasDescription &&
+      {hasDescription && !petrolView &&
         (readOnly ? (
           description ? <p className="description-static">{description}</p> : null
         ) : (
@@ -705,16 +740,18 @@ export default function Ledger({
           />
         ))}
 
-      {hasPetrol && !readOnly && (
+      {hasPetrol && (petrolRows.length > 0 || !readOnly) && (
         <div className={"petrol-bar" + (picking ? " picking" : "")}>
-          <button
-            type="button"
-            className={"add-row petrol-pick" + (picking ? " on" : "")}
-            aria-pressed={picking}
-            onClick={() => setPicking((p) => !p)}
-          >
-            {picking ? "Done selecting petrol" : "Select petrol entries"}
-          </button>
+          {!readOnly && !petrolView && (
+            <button
+              type="button"
+              className={"add-row petrol-pick" + (picking ? " on" : "")}
+              aria-pressed={picking}
+              onClick={() => setPicking((p) => !p)}
+            >
+              {picking ? "Done selecting petrol" : "Select petrol entries"}
+            </button>
+          )}
           <span className="petrol-summary">
             Petrol <strong>{fmt(petrolTotal)}</strong>
             <span className="petrol-count">{petrolRows.length === 1 ? "1 entry" : `${petrolRows.length} entries`}</span>
@@ -722,28 +759,32 @@ export default function Ledger({
         </div>
       )}
 
-      {hasPetrol && !readOnly && picking && (
+      {hasPetrol && picking && !petrolView && (
         <p className="petrol-hint">
           Click an entry to shade it into petrol. Shaded entries still count towards the budget — the Petrol
-          button at the top prints them on their own.
+          button at the top then shows them on their own.
         </p>
       )}
 
-      {hasPetrol && readOnly && petrolRows.length > 0 && (
-        <div className="petrol-bar">
-          <span className="petrol-summary">
-            Petrol <strong>{fmt(petrolTotal)}</strong>
-            <span className="petrol-count">{petrolRows.length === 1 ? "1 entry" : `${petrolRows.length} entries`}</span>
-          </span>
-        </div>
+      {hasPetrol && petrolView && (
+        <p className="petrol-hint">
+          Petrol only — the budget and the note are hidden because they belong to the whole month. Print now
+          prints just this list.
+        </p>
       )}
 
       {hasDay ? (
         <div className={"rows grouped" + (picking ? " picking-rows" : "")}>
-          {rows.length === 0 && (
-            <p className="empty-hint">{readOnly ? "No entries were recorded this month." : "No entries yet."}</p>
+          {visible.length === 0 && (
+            <p className="empty-hint">
+              {petrolView
+                ? "No entries are marked as petrol yet."
+                : readOnly
+                ? "No entries were recorded this month."
+                : "No entries yet."}
+            </p>
           )}
-          {groupByDay(rows).map(({ day, indices }) => {
+          {groupVisibleByDay().map(({ day, indices }) => {
             const dayTotal = indices.reduce((sum, i) => sum + (Number(rows[i].price) || 0), 0);
             return (
               <div className="day-group" key={day || "undated"}>
@@ -780,7 +821,7 @@ export default function Ledger({
                     </div>
                   )
                 )}
-                {!readOnly && (
+                {!readOnly && !petrolView && (
                   <button type="button" className="add-row day-add" onClick={() => addRowToDay(day)}>
                     + Add to {displayDay(day)}
                   </button>
@@ -792,16 +833,20 @@ export default function Ledger({
       ) : (
         <>
           <div className={"rows" + (picking ? " picking-rows" : "")}>
-            {rows.length === 0 && (
+            {visible.length === 0 && (
               <p className="empty-hint">
-                {readOnly ? "No entries were recorded this month." : "No entries yet — add one below."}
+                {petrolView
+                  ? "No entries are marked as petrol yet."
+                  : readOnly
+                  ? "No entries were recorded this month."
+                  : "No entries yet — add one below."}
               </p>
             )}
-            {rows.map((row, idx) =>
+            {visible.map((idx) =>
               readOnly ? (
                 <div key={idx} {...rowProps(idx)}>
-                  <span className="cell-name-static">{row.name || "—"}</span>
-                  <span className="cell-price-static">{fmt(row.price)}</span>
+                  <span className="cell-name-static">{rows[idx].name || "—"}</span>
+                  <span className="cell-price-static">{fmt(rows[idx].price)}</span>
                 </div>
               ) : (
                 <div key={idx} {...rowProps(idx)}>
@@ -809,7 +854,7 @@ export default function Ledger({
                     className="cell-name"
                     type="text"
                     placeholder={namePlaceholder}
-                    value={row.name}
+                    value={rows[idx].name}
                     onChange={(e) => updateRow(idx, "name", e.target.value)}
                   />
                   <input
@@ -817,7 +862,7 @@ export default function Ledger({
                     type="number"
                     placeholder="0"
                     step="1"
-                    value={row.price}
+                    value={rows[idx].price}
                     onChange={(e) => updateRow(idx, "price", e.target.value)}
                   />
                   <button type="button" className="cell-del" aria-label="Remove row" onClick={() => removeRow(idx)}>
@@ -827,7 +872,7 @@ export default function Ledger({
               )
             )}
           </div>
-          {!readOnly && (
+          {!readOnly && !petrolView && (
             <button type="button" className="add-row" onClick={addRow}>
               + {addLabel || "Add item"}
             </button>

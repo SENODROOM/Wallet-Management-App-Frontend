@@ -408,6 +408,15 @@ body {
 }
 .ledger-print:hover { border-color: var(--accent); color: var(--accent); }
 
+/* Petrol is a view the section is held in, so the button stays lit while it is
+   on — Print beside it then prints what the lit button is showing. */
+.ledger-print.petrol-print.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.ledger-print.petrol-print.on:hover { color: var(--accent-ink); }
+
 .print-controls {
   display: inline-flex;
   align-items: center;
@@ -632,6 +641,7 @@ body {
   letter-spacing: 0.02em;
   text-transform: uppercase;
   color: var(--ink-soft);
+  margin-left: auto;
 }
 .petrol-summary strong {
   font-family: var(--font-mono);
