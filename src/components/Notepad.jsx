@@ -16,9 +16,10 @@ export default function Notepad({ email, name, onLoggedOut }) {
   const [status, setStatus] = useState("saved");
   const [walletsTotal, setWalletsTotal] = useState(0);
   const [monthlyRemaining, setMonthlyRemaining] = useState(0);
+  const [polyBudget, setPolyBudget] = useState(0);
   const [notepadsCount, setNotepadsCount] = useState(isAdmin ? 2 : null);
   const walletsRef = useRef(null);
-  const userIncome = walletsTotal - monthlyRemaining;
+  const userIncome = walletsTotal - monthlyRemaining - polyBudget;
   const tailReady = isAdmin || notepadsCount !== null;
   const monthlyIndex = isAdmin ? "03" : String((notepadsCount || 0) + 1).padStart(2, "0");
   const walletsIndex = isAdmin ? "04" : String((notepadsCount || 0) + 2).padStart(2, "0");
@@ -107,6 +108,7 @@ export default function Notepad({ email, name, onLoggedOut }) {
                 initialBudget={state.poly.budget}
                 onStatus={setStatus}
                 onPriceDelta={handlePriceDelta}
+                onBudgetChange={setPolyBudget}
               />
             </>
           ) : (

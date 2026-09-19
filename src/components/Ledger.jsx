@@ -76,6 +76,7 @@ export default function Ledger({
   initialDescription,
   onPriceDelta,
   onRemainingChange,
+  onBudgetChange,
   onSave,
   onRemove
 }) {
@@ -184,6 +185,11 @@ export default function Ledger({
     if (hasBudget) onRemainingChange?.(remaining);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remaining, hasBudget]);
+
+  useEffect(() => {
+    if (hasBudget) onBudgetChange?.(budget);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [budget, hasBudget]);
 
   function updateRow(idx, field, value) {
     const nextValue = field === "price" ? (value === "" ? 0 : Number(value)) : value;
