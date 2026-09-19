@@ -71,7 +71,7 @@ export default function Notepad({ email, name, onLoggedOut }) {
         <h1>Wallet Notepad</h1>
         <p>
           {isAdmin
-            ? "Quantum Logics Income, Poly Learning Initiative, an adjustable Monthly Budget, and your Wallets."
+            ? "Quantum Logics Income, Poly Learning Foundation, an adjustable Monthly Budget, and your Wallets."
             : "Your own notepads, an adjustable Monthly Budget, and your Wallets."}
         </p>
       </header>
@@ -99,7 +99,7 @@ export default function Notepad({ email, name, onLoggedOut }) {
               />
               <Ledger
                 index="02"
-                title="Poly Learning Initiative"
+                title="Poly Learning Foundation"
                 section="poly"
                 hasDay={false}
                 hasBudget={true}
